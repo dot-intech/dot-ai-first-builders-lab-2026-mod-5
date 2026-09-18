@@ -8,3 +8,19 @@
 .daw-sessions/
 .daw-journal.jsonl
 # END DAW
+
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+
+# Environment variables (never commit real secrets)
+.env
+.env*.local
+
+# Test coverage
+coverage/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
