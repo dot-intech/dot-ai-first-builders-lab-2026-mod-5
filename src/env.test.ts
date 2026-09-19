@@ -37,6 +37,64 @@ describe('env', () => {
     expect(env.qaAccessEmail).toBeUndefined();
   });
 
+  it('debe devolver qaAccessEmail como undefined si la variable es un string vacío', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('QA_ACCESS_EMAIL', '');
+
+    const { env } = await import('./env');
+
+    expect(env.qaAccessEmail).toBeUndefined();
+  });
+
+  it('debe devolver qaAccessEmail como undefined si la variable es solo espacios', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('QA_ACCESS_EMAIL', '   ');
+
+    const { env } = await import('./env');
+
+    expect(env.qaAccessEmail).toBeUndefined();
+  });
+
+  it('debe devolver qaAccessEmail tal cual si tiene contenido', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('QA_ACCESS_EMAIL', 'qa@example.com');
+
+    const { env } = await import('./env');
+
+    expect(env.qaAccessEmail).toBe('qa@example.com');
+  });
+
+  it('debe devolver qaAccessEmail sin espacios en los extremos', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('QA_ACCESS_EMAIL', '  qa@example.com  ');
+
+    const { env } = await import('./env');
+
+    expect(env.qaAccessEmail).toBe('qa@example.com');
+  });
+
+  it("debe usar 'production' como nodeEnv si NODE_ENV no está definida (falla cerrado)", async () => {
+    vi.stubEnv('NODE_ENV', undefined);
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+
+    const { env } = await import('./env');
+
+    expect(env.nodeEnv).toBe('production');
+  });
+
+  it("debe usar 'production' como nodeEnv si NODE_ENV está definida pero vacía (falla cerrado)", async () => {
+    vi.stubEnv('NODE_ENV', '');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+
+    const { env } = await import('./env');
+
+    expect(env.nodeEnv).toBe('production');
+  });
+
   it('debe exponer nodeEnv tal cual viene de process.env.NODE_ENV', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
