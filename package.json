@@ -11,6 +11,8 @@
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude '**/*.integration.test.ts' --exclude '**/node_modules/**'",
+    "test:integration": "vitest run integration",
     "test:watch": "vitest",
     "lint": "eslint ."
   },
