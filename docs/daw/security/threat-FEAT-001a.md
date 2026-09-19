@@ -108,3 +108,26 @@ Riesgos: C:0 H:1 (mitigado + riesgo residual aceptado #1) M:3 (mitigados) L:4 (3
 Resultado: **PASSED** — todo riesgo identificado tiene mitigación aplicada o aceptación formal con
 los 3 campos que exige F-TM-04 (quién, justificación, condición de revisión). Ambas aceptaciones
 fueron confirmadas explícitamente por el usuario.
+
+## Addendum 2026-09-19 — decisiones tomadas en CODE
+
+Este addendum no modifica las aceptaciones de riesgo de arriba: aclara su alcance y registra
+mitigaciones nuevas. Las decisiones están en `docs/adr/` (ADR-001, ADR-002 y ADR-003).
+
+- **Riesgo aceptado #1 (exposición de un entorno no productivo).** El texto original menciona un
+  "entorno no productivo (staging/preview)". Desde CODE el backdoor solo se habilita con NODE_ENV
+  exactamente 'development', 'test' o 'staging'. 'preview' y cualquier otro valor ('', 'prod',
+  'Production') quedan cerrados, y un NODE_ENV sin definir o vacío se trata como 'production'. La
+  exposición aceptada queda acotada a un entorno cuyo NODE_ENV esté en esa lista (ADR-001). En un
+  despliegue construido con `next build`, Next reemplaza `process.env.NODE_ENV` por 'production'
+  en el código compilado (verificado leyendo Next 15.5.4, sin ejecutar un build), así que en la
+  práctica esa exposición se limita a `next dev`, tests y scripts sin bundler.
+- **Mitigación #3 (cookie).** Pasa de "secure condicional a NODE_ENV=production" a "secure salvo
+  development y test" (ADR-002). Esto también reemplaza la línea de F-TM-07 que dice "secure: true
+  cuando NODE_ENV=production".
+- **Mitigaciones nuevas.** Regla de entorno de lista exacta y fail-closed. La causa del rechazo se
+  guarda en `QaAccessDeniedError.reason`; el Block 6 deberá enviarla solo al log del servidor y
+  nunca al cliente. El `message` es genérico y un test lo verifica.
+- **Dependencias (W-TM-01).** ADR-003 define el plan que resuelve las 49 vulnerabilidades
+  detectadas por `pnpm audit`. Además, desde drizzle-orm 0.44 el `message` de `DrizzleQueryError` incluye SQL y
+  parámetros (emails, `token_hash`): los repositories del Block 4 no deben loguearlo ni propagarlo.
