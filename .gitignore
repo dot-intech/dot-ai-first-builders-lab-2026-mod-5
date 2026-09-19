@@ -24,3 +24,7 @@ coverage/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Python bytecode (scripts de DAW)
+__pycache__/
+*.pyc

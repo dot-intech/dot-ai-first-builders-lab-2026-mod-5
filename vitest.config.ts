@@ -8,7 +8,12 @@ export default defineConfig({
       provider: 'v8',
       reporter: ['text', 'html'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/**/*.test.{ts,tsx}', 'src/**/*.integration.test.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/*.integration.test.{ts,tsx}',
+        // Solo declara tipos: no tiene código ejecutable que medir.
+        'src/features/**/domain/types.ts',
+      ],
       thresholds: {
         lines: 80,
         branches: 80,

@@ -13,16 +13,17 @@
     "test": "vitest run",
     "test:unit": "vitest run --exclude '**/*.integration.test.ts' --exclude '**/node_modules/**'",
     "test:integration": "vitest run integration",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "lint": "eslint ."
   },
   "dependencies": {
-    "next": "15.5.4",
-    "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "drizzle-orm": "0.36.4",
     "drizzle-kit": "0.28.1",
-    "pg": "8.13.1"
+    "drizzle-orm": "0.36.4",
+    "next": "15.5.4",
+    "pg": "8.13.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.2.0",
@@ -30,6 +31,7 @@
     "@types/pg": "8.11.10",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
+    "@vitest/coverage-v8": "2.1.8",
     "eslint": "9.17.0",
     "eslint-config-next": "15.5.4",
     "prettier": "3.4.2",
