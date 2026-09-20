@@ -1,4 +1,3 @@
-import { sql } from 'drizzle-orm';
 import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
@@ -8,9 +7,7 @@ import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
  */
 
 export const usuarios = pgTable('usuarios', {
-  id: uuid('id')
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
+  id: uuid('id').primaryKey().defaultRandom(),
   email: text('email').notNull().unique(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -18,9 +15,7 @@ export const usuarios = pgTable('usuarios', {
 export const sesiones = pgTable(
   'sesiones',
   {
-    id: uuid('id')
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
+    id: uuid('id').primaryKey().defaultRandom(),
     usuarioId: uuid('usuario_id')
       .notNull()
       .references(() => usuarios.id, { onDelete: 'cascade' }),
