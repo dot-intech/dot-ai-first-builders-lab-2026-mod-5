@@ -7,17 +7,17 @@ import { sesiones, usuarios } from './schema';
 
 /**
  * Tests de integración contra una BD PostgreSQL de test real (nunca contra la BD de
- * desarrollo/producción). Requieren TEST_DATABASE_URL (o, en su defecto, DATABASE_URL)
- * apuntando a una instancia efímera de Postgres. Cada test crea sus propios datos y los
- * limpia en `afterEach` — nunca opera sobre filas preexistentes (Rule #0 de
+ * desarrollo/producción). Requieren TEST_DATABASE_URL apuntando a una instancia efímera de
+ * Postgres; no hay fallback a DATABASE_URL porque esa puede ser la BD real. Cada test crea sus
+ * propios datos y los limpia en `afterEach` — nunca opera sobre filas preexistentes (Rule #0 de
  * testing.instructions.md).
  */
 
-const testDatabaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+const testDatabaseUrl = process.env.TEST_DATABASE_URL;
 
 if (!testDatabaseUrl) {
   throw new Error(
-    'TEST_DATABASE_URL (o DATABASE_URL) debe estar definida para correr schema.integration.test.ts contra una BD de test real.',
+    'TEST_DATABASE_URL debe estar definida para correr schema.integration.test.ts contra una BD de test real.',
   );
 }
 
