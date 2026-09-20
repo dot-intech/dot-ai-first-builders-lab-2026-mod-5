@@ -45,7 +45,7 @@ afterAll(async () => {
 });
 
 describe('schema: usuarios y sesiones', () => {
-  it('insertar dos usuarios con el mismo email debe fallar por la constraint UNIQUE', async () => {
+  it('debe fallar por la constraint UNIQUE al insertar dos usuarios con el mismo email', async () => {
     const email = `qa-unique-${randomUUID()}@example.com`;
 
     const [creado] = await db.insert(usuarios).values({ email }).returning();
@@ -54,7 +54,7 @@ describe('schema: usuarios y sesiones', () => {
     await expect(db.insert(usuarios).values({ email })).rejects.toThrow();
   });
 
-  it('insertar dos sesiones con el mismo token_hash debe fallar por la constraint UNIQUE', async () => {
+  it('debe fallar por la constraint UNIQUE al insertar dos sesiones con el mismo token_hash', async () => {
     const email = `qa-session-unique-${randomUUID()}@example.com`;
     const [usuario] = await db.insert(usuarios).values({ email }).returning();
     usuarioIdsCreados.push(usuario!.id);
@@ -67,9 +67,10 @@ describe('schema: usuarios y sesiones', () => {
     ).rejects.toThrow();
   });
 
-  it('eliminar un usuario debe eliminar en cascada sus sesiones', async () => {
+  it('debe eliminar en cascada las sesiones al eliminar un usuario', async () => {
     const email = `qa-cascade-${randomUUID()}@example.com`;
     const [usuario] = await db.insert(usuarios).values({ email }).returning();
+    usuarioIdsCreados.push(usuario!.id);
 
     const tokenHash = randomUUID();
     await db.insert(sesiones).values({ usuarioId: usuario!.id, tokenHash });

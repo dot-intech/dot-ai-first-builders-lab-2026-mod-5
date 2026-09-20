@@ -12,10 +12,13 @@ beforeEach(() => {
 });
 
 // El pool se cierra acá y no al final de cada test: así se libera aunque un `expect` falle antes.
+// Se limpia el estado primero y el pool se cierra al final: si `pool.end()` falla, igual quedan
+// restaurados el entorno y `poolAbierto`.
 afterEach(async () => {
-  await poolAbierto?.end();
+  const pool = poolAbierto;
   poolAbierto = undefined;
   vi.unstubAllEnvs();
+  await pool?.end();
 });
 
 describe('shared/db/client', () => {

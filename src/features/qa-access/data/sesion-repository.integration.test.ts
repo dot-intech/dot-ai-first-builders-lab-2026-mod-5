@@ -15,8 +15,9 @@ import { create, findByTokenHash, touchLastActivity } from './sesion-repository'
 
 const holder = vi.hoisted(() => ({ db: undefined as NodePgDatabase | undefined }));
 
-// `db` es un getter sobre `holder` (no un valor) para que el mock lea el valor vivo en cada acceso:
-// los tests reemplazan `holder.db` por un pg que falla, y desestructurar o cachear `db` lo impediría.
+// `db` es un getter (no un valor) porque la factory corre al importar el repository, antes de
+// `beforeAll`, con `holder.db` todavía `undefined`; y porque los tests cambian `holder.db` por un
+// pg falso en cada caso. Con `{ db: holder.db }` el mock quedaría fijo en ese `undefined` inicial.
 vi.mock('../../../shared/db/client', () => ({
   get db() {
     return holder.db;
