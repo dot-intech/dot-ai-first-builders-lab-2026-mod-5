@@ -1,8 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { db } from '../../../shared/db/client';
 import { sesiones } from '../../../shared/db/schema';
+import { RepositoryError } from '../domain/errors';
 import type { Sesion } from '../domain/types';
-import { RepositoryError, conRepositoryError } from './errors';
+import { conRepositoryError } from './errors';
 
 type FilaSesion = typeof sesiones.$inferSelect;
 

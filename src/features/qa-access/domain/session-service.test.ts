@@ -1,10 +1,9 @@
 import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { RepositoryError } from '../data/errors';
 import * as sesionRepository from '../data/sesion-repository';
 import * as usuarioRepository from '../data/usuario-repository';
-import { SessionExpiredError, SessionNotFoundError } from './errors';
+import { RepositoryError, SessionExpiredError, SessionNotFoundError } from './errors';
 import { INACTIVIDAD_MAXIMA_MS } from './rules';
 import { crearSesion, getSession, iniciarSesionQa } from './session-service';
 import type { Sesion, Usuario } from './types';

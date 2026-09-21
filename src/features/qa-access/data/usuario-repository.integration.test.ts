@@ -4,7 +4,7 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { usuarios } from '../../../shared/db/schema';
-import { RepositoryError } from './errors';
+import { RepositoryError } from '../domain/errors';
 import { findByEmail, findById, findOrCreateByEmail } from './usuario-repository';
 
 /**
