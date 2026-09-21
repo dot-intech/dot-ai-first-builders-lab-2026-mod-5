@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { usuarios } from '../../../shared/db/schema';
 import { RepositoryError } from './errors';
-import { findByEmail, findOrCreateByEmail } from './usuario-repository';
+import { findByEmail, findById, findOrCreateByEmail } from './usuario-repository';
 
 /**
  * Tests de integración contra la BD de test (TEST_DATABASE_URL), nunca contra la BD real.
@@ -184,5 +184,33 @@ describe('usuario-repository/findByEmail', () => {
     const repositoryError = error as RepositoryError;
     expect(repositoryError.message).not.toContain(email);
     expect((repositoryError.cause as Error).message).toContain(email);
+  });
+});
+
+describe('usuario-repository/findById', () => {
+  it('debe devolver el usuario existente por su id', async () => {
+    const creado = await findOrCreateByEmail(emailUnico('fbi'));
+
+    const encontrado = await findById(creado.id);
+
+    expect(encontrado).toEqual(creado);
+  });
+
+  it('debe devolver null (sin lanzar) si el id no existe', async () => {
+    const resultado = await findById(randomUUID());
+
+    expect(resultado).toBeNull();
+  });
+
+  it('debe lanzar RepositoryError sin exponer el error crudo del driver si la query falla', async () => {
+    const id = randomUUID();
+    holder.db = dbConPgQueFalla();
+
+    const error = await findById(id).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(RepositoryError);
+    const repositoryError = error as RepositoryError;
+    expect(repositoryError.message).not.toContain(id);
+    expect((repositoryError.cause as Error).message).toContain(id);
   });
 });

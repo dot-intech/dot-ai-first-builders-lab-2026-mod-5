@@ -51,3 +51,13 @@ export async function findOrCreateByEmail(email: string): Promise<Usuario> {
   }
   return aUsuario(fila);
 }
+
+/** No normaliza: recibe un id (uuid), no un email. Sin fila con ese id devuelve `null`. */
+export async function findById(id: string): Promise<Usuario | null> {
+  const fila = await conRepositoryError('usuario.findById', async () => {
+    const [encontrada] = await db.select().from(usuarios).where(eq(usuarios.id, id)).limit(1);
+    return encontrada;
+  });
+
+  return fila ? aUsuario(fila) : null;
+}
