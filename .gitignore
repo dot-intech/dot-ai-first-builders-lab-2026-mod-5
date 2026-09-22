@@ -8,3 +8,25 @@
 .daw-sessions/
 .daw-journal.jsonl
 # END DAW
+
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+# Generado por `next dev` / `next build`
+next-env.d.ts
+
+# Environment variables (never commit real secrets)
+.env
+.env*.local
+
+# Test coverage
+coverage/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Python bytecode (scripts de DAW)
+__pycache__/
+*.pyc
