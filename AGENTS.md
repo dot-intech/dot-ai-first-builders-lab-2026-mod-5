@@ -50,6 +50,10 @@ files and **propose the text for you to paste here**. You always confirm it.
 | Package manager | pnpm |
 | Google AI Studio library | genai |
 | Google AI Studio Vision Model | gemini-3.1-flash-lite |
+| Install command | pnpm install --frozen-lockfile |
+| Test command | pnpm test:unit (unit) · pnpm test:integration (requiere DB) |
+| Lint command | pnpm lint |
+| Typecheck command | pnpm exec tsc --noEmit |
 
 ---
 
