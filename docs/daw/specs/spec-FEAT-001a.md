@@ -150,13 +150,17 @@ su nueva ubicación compartida)*
 - `src/features/qa-access/domain/types.ts` (new) — tipos `Usuario`, `Sesion`.
 - `src/features/qa-access/domain/rules.ts` (new) — funciones puras.
 - `src/features/qa-access/domain/errors.ts` (new) — `QaAccessDeniedError`, `SessionExpiredError`,
-  `SessionNotFoundError`.
+  `SessionNotFoundError`, `RepositoryError` (movida acá desde `data/errors.ts`, ver Block 4 —
+  ADR-005: `ui/` necesita reconocer el error sin importar de `data`).
 
 **Logic**
 
 `rules.ts` exporta funciones puras, sin I/O (corrección pedida por `daw-arch-auditor`: no leen
 `process.env` internamente, reciben todo por parámetro):
-- `esEntornoNoProductivo(nodeEnv: string): boolean` — `true` si `nodeEnv !== 'production'`.
+- `esEntornoPermitidoParaAccesoQa(nodeEnv: string): boolean` — `true` solo si `nodeEnv` está en una
+  allowlist explícita de entornos permitidos (`development`, `test`, `staging`); cualquier otro
+  valor — incluida una `NODE_ENV` de producción, vacía o desconocida — es fail-closed. Reemplaza el
+  diseño original por denylist (`nodeEnv !== 'production'`), corregido durante CODE (ADR-001).
 - `emailCoincideConQa(email: string, qaAccessEmail: string | undefined): boolean`.
 - `sesionExpiradaPorInactividad(lastActivityAt: Date, now: Date): boolean` — `true` si
   `now - lastActivityAt > 24h`.
@@ -169,8 +173,10 @@ su nueva ubicación compartida)*
   los bloques siguientes usan.
 
 **Required tests**
-- [ ] `rules.test.ts` — "esEntornoNoProductivo debe devolver false para 'production'" (test first).
-- [ ] `rules.test.ts` — "esEntornoNoProductivo debe devolver true para 'development' y 'test'".
+- [ ] `rules.test.ts` — "esEntornoPermitidoParaAccesoQa debe devolver true para 'development',
+      'test' y 'staging'" (test first).
+- [ ] `rules.test.ts` — "esEntornoPermitidoParaAccesoQa debe devolver false para 'production' y
+      cualquier valor fuera de la lista de permitidos (comparación exacta)".
 - [ ] `rules.test.ts` — "sesionExpiradaPorInactividad debe devolver false a las 23h59m de
       inactividad y true a las 24h01m" (casos límite).
 - [ ] `rules.test.ts` — "emailCoincideConQa debe devolver false si qaAccessEmail es undefined".
@@ -182,15 +188,21 @@ por grep en CODE).
 ## Block 4 — Datos: cliente Drizzle y repositories
 
 **Files**
-- `src/shared/db/client.ts` (new) — cliente Drizzle sobre `pg`, usa `env.databaseUrl` con
-  `sslmode=require`. Ubicación compartida (ver nota de estrategia de BD en el Summary): FEAT-001b
-  reusa este mismo cliente en vez de crear otro pool de conexión.
+- `src/shared/db/client.ts` (new) — cliente Drizzle sobre `pg`, usa `env.databaseUrl`. El `sslmode`
+  lo decide la propia `DATABASE_URL`; el código no lo fuerza (corregido durante CODE — ver SAST I-3
+  y threat model F-TM-07, asunción documentada de despliegue). Ubicación compartida (ver nota de
+  estrategia de BD en el Summary): FEAT-001b reusa este mismo cliente en vez de crear otro pool de
+  conexión.
 - `src/features/qa-access/data/usuario-repository.ts` (new) — `findByEmail`,
-  `findOrCreateByEmail`. Importa la tabla `usuarios` desde `src/shared/db/schema.ts` y el cliente
-  desde `src/shared/db/client.ts`.
+  `findOrCreateByEmail`, `findById`. Importa la tabla `usuarios` desde `src/shared/db/schema.ts`, el
+  cliente desde `src/shared/db/client.ts` y `normalizarEmail`/`Usuario` desde `domain/rules` y
+  `domain/types` (dirección de dependencia intencional, ver Completion criterion más abajo).
 - `src/features/qa-access/data/sesion-repository.ts` (new) — `create`, `findByTokenHash`,
-  `touchLastActivity`. Importa la tabla `sesiones` desde `src/shared/db/schema.ts`.
-- `src/features/qa-access/data/errors.ts` (new) — `RepositoryError`.
+  `touchLastActivity`. Importa la tabla `sesiones` desde `src/shared/db/schema.ts` y `Sesion` desde
+  `domain/types`.
+- `src/features/qa-access/data/errors.ts` (new) — `conRepositoryError` (helper que ejecuta una
+  consulta y traduce cualquier fallo a `RepositoryError`). La clase `RepositoryError` en sí vive en
+  `domain/errors.ts` (Block 3), no acá — corregido durante CODE (ADR-005).
 
 **Logic**
 
@@ -199,9 +211,11 @@ la creación sea idempotente ante llamadas concurrentes sin que la constraint UN
 burbujee como excepción no manejada.
 
 **Error handling**
-- Cualquier error de conexión o de query se envuelve en un `RepositoryError` tipado (nuevo en este
-  bloque, en `data/errors.ts`) antes de propagarse — nunca se deja pasar el error crudo de `pg`
-  hacia domain.
+- Cualquier error de conexión o de query se envuelve en un `RepositoryError` tipado (definido en
+  `domain/errors.ts`, Block 3; este bloque solo aporta el helper `conRepositoryError` en
+  `data/errors.ts` que lo lanza) antes de propagarse — nunca se deja pasar el error crudo de `pg`
+  hacia domain. Corregido durante CODE (ADR-005): la clase se movió de `data` a `domain` para que
+  `ui/` pudiera reconocerla sin importar de `data`.
 
 **Required tests**
 - [ ] `usuario-repository.integration.test.ts` — "findOrCreateByEmail crea el usuario la primera
@@ -217,24 +231,37 @@ burbujee como excepción no manejada.
       que rechaza la query) — valida el error documentado arriba.
 
 **Completion criterion**
-Los 5 tests pasan contra la BD de test; ningún repository importa `domain/session-service.ts`
-(dirección de dependencia correcta: data no depende de domain).
+Los 5 tests pasan contra la BD de test; ningún repository importa `domain/session-service.ts` — esa
+dirección (domain orquesta a data, nunca al revés) es la que no se cruza. Los repositories sí
+importan `domain/rules` (`normalizarEmail`) y `domain/types` (los tipos `Usuario`/`Sesion`), y
+`domain/errors` (`RepositoryError`): es la dirección de dependencia intencional del diseño, corregida
+durante CODE frente a la redacción original de este bloque (ADR-004, ADR-005).
 
 ## Block 5 — Servicio de sesión
 
 **Files**
-- `src/features/qa-access/domain/session-service.ts` (new) — `crearSesion`, `getSession`.
+- `src/features/qa-access/domain/session-service.ts` (new) — `crearSesion`, `iniciarSesionQa`,
+  `getSession`. `iniciarSesionQa` se agregó durante CODE (ADR-004): no estaba en el diseño original
+  de este bloque.
 
 **Logic**
 
-- `crearSesion(usuarioId)`: genera un token con `crypto.randomBytes(32)`, calcula su hash SHA-256,
-  llama a `sesionRepository.create` con el hash, devuelve el **token crudo** (para que Block 6 lo
-  ponga en la cookie — el crudo nunca se persiste).
-- `getSession(tokenCrudo)`: hashea el token recibido, busca por `token_hash` vía
+- `crearSesion(usuarioId, now = new Date())`: genera un token con `crypto.randomBytes(32)`, calcula
+  su hash SHA-256, llama a `sesionRepository.create` con el hash y `now` (reloj de la app, no el
+  default de la BD), devuelve el **token crudo** (para que Block 6 lo ponga en la cookie — el crudo
+  nunca se persiste). El parámetro `now` se agregó durante CODE para que `last_activity_at` y
+  `created_at` los fije la app, no la BD.
+- `iniciarSesionQa(email)`: crea o reutiliza el usuario (`usuarioRepository.findOrCreateByEmail`) y
+  le abre una sesión con `crearSesion`. Orquesta lo que Block 6 llamaba directamente a los
+  repositories — agregado durante CODE (ADR-004) para que la única pieza de `domain` que importa de
+  `data` sea este service, no `ui/`.
+- `getSession(tokenCrudo, now = new Date())`: hashea el token recibido, busca por `token_hash` vía
   `sesionRepository.findByTokenHash`. Si no existe → lanza `SessionNotFoundError`. Si
-  `sesionExpiradaPorInactividad(sesion.lastActivityAt, new Date())` → lanza `SessionExpiredError`.
-  Si es válida → llama a `sesionRepository.touchLastActivity` (ventana deslizante, NFR-01) y
-  devuelve el usuario asociado.
+  `sesionExpiradaPorInactividad(sesion.lastActivityAt, now)` → lanza `SessionExpiredError`. Si es
+  válida → llama a `sesionRepository.touchLastActivity` (ventana deslizante, NFR-01) y busca al
+  usuario con `usuarioRepository.findById`; si no existe → `SessionNotFoundError`. Devuelve el
+  `Usuario` asociado (no solo valida: es el caller real del service dentro del alcance de este
+  ticket, gap señalado por `daw-impact-scanner` en PLAN de FEAT-001a).
 
 **Input validation**
 - `tokenCrudo` llega desde la cookie del cliente — input no confiable. Se trata como string
@@ -265,7 +292,18 @@ Los 4 tests pasan; `session-service.ts` es la única pieza de `domain` que impor
 ## Block 6 — Backdoor (server action) + UI mínima
 
 **Files**
-- `src/features/qa-access/ui/actions.ts` (new) — server action `qaBackdoorLogin` (`'use server'`).
+- `src/features/qa-access/ui/actions.ts` (new) — server action `qaBackdoorLogin` (`'use server'`,
+  único export del archivo a propósito).
+- `src/features/qa-access/ui/acceso-qa.ts` (new) — `autenticarAccesoQa({nodeEnv, qaAccessEmail})`,
+  sin `'use server'`: valida entorno/email y llama a `iniciarSesionQa`. Agregado durante CODE
+  (ADR-004) para separar la validación parametrizada del server action.
+- `src/features/qa-access/ui/cookie-sesion.ts` (new) — `NOMBRE_COOKIE_SESION`,
+  `opcionesCookieSesion(nodeEnv)` (usa `cookieSesionEsSecure`). Agregado durante CODE.
+- `src/features/qa-access/ui/estado-sesion.ts` (new) — `resolverEstadoSesion(tokenCookie)`, usado
+  por la página para traducir el resultado de `getSession` a un estado de UI. Agregado durante CODE.
+- `src/features/qa-access/ui/registro-acceso-qa.ts` (new) — `registrarEventoAccesoQa(evento)`, log
+  de auditoría JSON por evento (nivel según resultado: granted→info, denied→warn, error→error;
+  copia los campos uno a uno, nunca vuelca el evento entero). Agregado durante CODE.
 - `src/features/qa-access/ui/qa-login-button.tsx` (new) — client component `QaLoginButton`.
 - `src/app/dev-login/page.tsx` (new) — server component.
 - `src/app/layout.tsx` (new) — layout raíz mínimo.
@@ -276,49 +314,63 @@ Los 4 tests pasan; `session-service.ts` es la única pieza de `domain` que impor
 - **Invocación:** `qaBackdoorLogin()` — Server Action de Next.js, sin parámetros (por diseño: el
   email nunca viaja desde el cliente, mitigación del threat model). Se invoca desde el `action` de
   un `<form>` que envuelve `QaLoginButton`.
-- **Respuesta:** en éxito, setea la cookie de sesión (`httpOnly`, `sameSite=lax`, `secure` si
-  `env.nodeEnv === 'production'`, aunque en producción la request nunca llega a este punto porque
-  `esEntornoNoProductivo` la corta antes) y redirige a `/dev-login`. En error, redirige a
-  `/dev-login?error=1` (mensaje genérico, sin detalle interno).
+- **Respuesta:** en éxito, setea la cookie de sesión (`httpOnly`, `sameSite=lax`, `secure` según
+  `cookieSesionEsSecure(nodeEnv)` — corregido durante CODE, ADR-002 — aunque en producción la
+  request nunca llega a este punto porque `esEntornoPermitidoParaAccesoQa` la corta antes) y
+  redirige a `/dev-login`. En error, redirige a `/dev-login?error=1` (mensaje genérico, sin detalle
+  interno).
 - **Auth:** ninguna — este server action ES el mecanismo de autenticación.
 
 **Logic**
 
 `qaBackdoorLogin`:
-1. Lee `env.nodeEnv` y `env.qaAccessEmail` (los únicos puntos donde se lee `process.env`, por
-   diseño de Block 3).
-2. Si `!esEntornoNoProductivo(env.nodeEnv)` → lanza `QaAccessDeniedError` (capturado por el propio
-   action, que redirige con error genérico) — nunca continúa.
-3. Si `env.qaAccessEmail` no está configurado → mismo `QaAccessDeniedError`.
-4. `usuarioRepository.findOrCreateByEmail(env.qaAccessEmail)`.
-5. `sessionService.crearSesion(usuario.id)` → token crudo.
-6. Setea la cookie con el token crudo y los flags de seguridad.
-7. Loguea (server-side, sin exponer el token) el resultado: `{ event: 'qa_backdoor_login',
-   outcome: 'granted' | 'denied', reason?, timestamp }`.
+1. Llama a `autenticarAccesoQa({nodeEnv: env.nodeEnv, qaAccessEmail: env.qaAccessEmail})`
+   (`ui/acceso-qa.ts`) — los únicos puntos donde se lee `process.env` siguen siendo Block 1/3, esta
+   función solo recibe los valores por parámetro. Corregido durante CODE (ADR-004): la validación y
+   la orquestación se separaron del server action.
+2. `autenticarAccesoQa` valida `esEntornoPermitidoParaAccesoQa(nodeEnv)` y el email de QA; si
+   cualquiera falla, lanza `QaAccessDeniedError` (capturado por `qaBackdoorLogin`, que redirige con
+   error genérico) — nunca continúa.
+3. Si pasa la validación, `autenticarAccesoQa` llama a `sessionService.iniciarSesionQa(email)`, que
+   crea o reutiliza el usuario y abre la sesión — devuelve el token crudo.
+4. `qaBackdoorLogin` setea la cookie con `opcionesCookieSesion(env.nodeEnv)` (`ui/cookie-sesion.ts`).
+5. Loguea vía `registrarEventoAccesoQa` (`ui/registro-acceso-qa.ts`, sin exponer el token) el
+   resultado: `{ event: 'qa_backdoor_login', outcome: 'granted' | 'denied' | 'error', reason?,
+   operation?, timestamp }`.
 
-**Aclaración de capas (pedida por `daw-arch-auditor`):** en los pasos 2 y 3, `ui/actions.ts`
-llama a `domain/rules.ts` únicamente para validación pura (sin efectos secundarios, sin BD). La
-única llamada de este bloque hacia `data/*` es a través de `domain/session-service.ts`
-(`sessionService.crearSesion`) y de los repositories directamente para la búsqueda/creación de
-usuario — la UI nunca construye ni ejecuta una query por sí misma.
+**Aclaración de capas (pedida por `daw-arch-auditor`, corregida durante CODE — ADR-004):**
+`ui/actions.ts` llama a `ui/acceso-qa.ts` para la validación (que a su vez llama a `domain/rules.ts`,
+sin efectos secundarios). La única llamada de este bloque hacia `data/*` es a través de
+`domain/session-service.ts` (`iniciarSesionQa` → `crearSesion`) — la UI nunca construye ni ejecuta
+una query por sí misma ni importa de `data/` directamente.
 
 `src/app/dev-login/page.tsx` (server component):
-- Chequea `esEntornoNoProductivo(env.nodeEnv)` **de nuevo, en la página** (defensa en profundidad
-  — segunda capa independiente del action). Si es producción → `notFound()` (no renderiza nada,
-  ni el botón ni pistas de que el mecanismo existe).
-- Si no es producción: intenta `getSession()` a partir de la cookie actual.
-  - Si hay sesión válida → muestra "Conectado como {email}" (llamando a `getSession()`, que es el
-    caller real del `session-service` dentro del alcance de este ticket — gap señalado por
-    `daw-impact-scanner`).
-  - Si no hay sesión (o expiró) → muestra `QaLoginButton` dentro de un `<form action={...}>`.
+- Chequea `esEntornoPermitidoParaAccesoQa(env.nodeEnv)` **de nuevo, en la página** (defensa en
+  profundidad — segunda capa independiente del action). Si no está permitido → `notFound()` (no
+  renderiza nada, ni el botón ni pistas de que el mecanismo existe).
+- Si está permitido: llama a `resolverEstadoSesion(tokenCookie)` (`ui/estado-sesion.ts`, agregado
+  durante CODE), que a su vez llama a `getSession()` — el caller real del `session-service` dentro
+  del alcance de este ticket, gap señalado por `daw-impact-scanner`.
+  - Si hay sesión válida → muestra "Conectado como {email}".
+  - Si no hay sesión (o expiró, o hubo un `RepositoryError`) → muestra `QaLoginButton` dentro de un
+    `<form action={...}>`, o un mensaje de error genérico si fue un `RepositoryError`.
 
 **Error handling**
 - `QaAccessDeniedError` → capturado en `qaBackdoorLogin`, redirige a `/dev-login?error=1` con
   mensaje genérico ("No se pudo iniciar sesión"). Nunca expone si la causa fue producción vs. env
   var faltante.
-- `SessionExpiredError` / `SessionNotFoundError` (al llamar `getSession()` desde la página) →
-  capturadas en `dev-login/page.tsx`, tratadas como "no hay sesión" (se muestra el botón de login,
-  sin redirigir a ningún lado que no exista todavía).
+- `RepositoryError` → capturado también en `qaBackdoorLogin` (agregado durante CODE), mismo
+  redirect genérico; nunca se propaga el `cause` (puede traer SQL con emails/`token_hash`).
+- `SessionExpiredError` / `SessionNotFoundError` (al llamar `getSession()` desde
+  `resolverEstadoSesion`) → tratadas como "no hay sesión" (se muestra el botón de login).
+- `RepositoryError` (al llamar `getSession()` desde `resolverEstadoSesion`) → agregado durante CODE:
+  se loguea solo por `operation` y la página muestra "No se pudo verificar la sesión", sin redirigir
+  a ningún lado que no exista todavía.
+
+**Nota sobre tests de componentes (agregado durante CODE — ADR-006):** los tests de
+`qa-login-button.tsx` y `dev-login/page.tsx` usan `renderToStaticMarkup` (de `react-dom/server`) en
+vez de una librería de testing de componentes nueva, para no introducir una dependencia no
+justificada en el spec original.
 
 **Required tests**
 - [ ] `actions.integration.test.ts` — "qaBackdoorLogin con NODE_ENV=development y
