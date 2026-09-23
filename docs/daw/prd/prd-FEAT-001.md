@@ -12,9 +12,10 @@
 |---|---|---|---|---|
 | FEAT-001a | Acceso directo de QA sin magic link | prd-FEAT-001a.md | none | done — PR #1 mergeado a main (05785c2) |
 | FEAT-001b | Registrar consumo a partir de una foto (captura/galería) con análisis de IA | prd-FEAT-001b.md | depends on a | active |
+| FEAT-001c | Carga manual y manejo de baja confianza en el registro de consumo por foto | prd-FEAT-001c.md | depends on b | pending |
 
 ## Suggested implementation order
-a → b
+a → b → c
 
 > **The `Status` column is maintained, not decorative.** RELEASE's closeout moves the finished
 > sub-ticket to `done` — with where its branch landed — and the next one to `active`.
@@ -37,3 +38,11 @@ grande para un solo ticket, y se partió en dos:
   esperar al ticket de autenticación completo (magic link).
 - **FEAT-001b** es el flujo de usuario completo (captura/carga → análisis → revisión/edición →
   guardado), asumiendo que ya existe un usuario de sesión activa provisto por FEAT-001a.
+
+El 2026-09-23, al retomar FEAT-001b, el control de alcance detectó que seguía siendo grande (19
+criterios de aceptación, 3 áreas) y se volvió a dividir:
+
+- **FEAT-001b** conserva el camino feliz (captura/galería → análisis → revisión/edición → guardado,
+  y cancelación) y el mensaje de error ante fallo o demora > 30 s del análisis.
+- **FEAT-001c** toma la carga manual tras un error, y la advertencia / recarga / edición obligatoria
+  ante estimaciones de baja confianza.

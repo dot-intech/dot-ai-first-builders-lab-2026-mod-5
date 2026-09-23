@@ -4,19 +4,25 @@
 |-------|-------|
 | Ticket | FEAT-001b |
 | Tracker | none |
-| Date | 2026-09-18 |
+| Date | 2026-09-23 |
 | PRD loops | 0 |
 
 ## Contexto y Problema
 
-Esta es la sub-parte `b` de la división de FEAT-001 (ver `docs/daw/prd/prd-FEAT-001.md`): el flujo
-completo por el que un usuario registra un consumo a partir de una foto de su plato — capturada en
-el momento o elegida de la galería — analizada con un modelo de visión, revisada/editada por el
-usuario y guardada en la base de datos.
+Esta es la sub-parte `b` de la división de FEAT-001 (ver `docs/daw/prd/prd-FEAT-001.md`): el camino
+feliz del flujo por el que un usuario registra un consumo a partir de una foto de su plato —
+capturada en el momento o elegida de la galería — analizada con un modelo de visión, revisada/editada
+por el usuario y guardada en la base de datos.
 
 Este ticket **depende de FEAT-001a** (acceso directo de QA), que provee el usuario de sesión activa
 al que se asocian los consumos. No implementa login, ni tablero principal, ni historial — esos
 quedan para tickets futuros de NutraShot.
+
+El 2026-09-23, el control de alcance de DEFINE detectó que la versión anterior de este PRD (19
+criterios de aceptación) era demasiado grande y se volvió a dividir: la carga manual ante un error
+de análisis y el flujo de baja confianza pasaron a **FEAT-001c**, que depende de este ticket. El
+mensaje de error ante fallo o demora del análisis se queda aquí, para que el flujo nunca falle en
+silencio.
 
 ### Sujetos involucrados
 
@@ -54,38 +60,26 @@ el consumo resultante — quedando asociado al usuario de la sesión activa en l
   se está procesando.
 - FR-10: El sistema debe ocultar al usuario los detalles técnicos de la consulta al modelo de
   visión (endpoint, payload, nombre del modelo).
-- FR-11: El sistema debe mostrar un mensaje de error cuando no se pueda procesar la imagen, ya sea
-  por error interno o por demora superior a los 30 segundos (ver NFR-03).
-- FR-12: Ante un error de procesamiento de imagen, el sistema debe permitir al usuario hacer una
-  carga manual de la descripción, cantidad de calorías y desglose nutricional del consumo,
-  respetando el mismo formato de desglose exigido en FR-08.
-- FR-13: Luego de mostrar la información obtenida a partir de una imagen, el sistema debe
+- FR-11: Luego de mostrar la información obtenida a partir de una imagen, el sistema debe
   permitirle al usuario editar estos datos antes de guardarlos en el registro de consumo.
-- FR-14: Al desglosar los alimentos detectados en una imagen, el sistema debe recordar al usuario
+- FR-12: Al desglosar los alimentos detectados en una imagen, el sistema debe recordar al usuario
   que la información puede ser inexacta.
-- FR-15: Al desglosar los alimentos detectados en una imagen, el sistema debe advertir al usuario
-  cuando la estimación se clasifique como de baja confianza (ver NFR-02).
-- FR-16: Ante una estimación de baja confianza, el sistema debe darle al usuario la opción de
-  cargar una nueva imagen.
-- FR-17: Al desglosar los alimentos detectados en una imagen, el sistema debe exigir al usuario
-  editar la descripción y la cantidad de calorías antes de guardar el consumo, cuando la estimación
-  se haya clasificado como de baja confianza.
-- FR-18: El sistema debe permitirle al usuario cancelar la creación de un nuevo consumo en
+- FR-13: El sistema debe permitirle al usuario cancelar la creación de un nuevo consumo en
   cualquier paso del flujo y volver al inicio sin guardar ningún dato.
-- FR-19: El sistema debe asociar cada consumo guardado al usuario de la sesión activa (provista por
+- FR-14: El sistema debe asociar cada consumo guardado al usuario de la sesión activa (provista por
   FEAT-001a).
+- FR-15: El sistema debe mostrar un mensaje de error cuando no se pueda procesar la imagen, ya sea
+  por error interno o por demora superior a los 30 segundos (ver NFR-02).
 
 ## Non-Functional Requirements
 
 - NFR-01: El procesamiento de la imagen desde la carga hasta la visualización de los datos
   estimados debe concretarse en < 10 s (p95) en condiciones normales de una red 4G, asumiendo
   disponibilidad plena del servicio de Google AI Studio.
-- NFR-02: El nivel aceptable de confianza en la información estimada a partir de la imagen debe
-  ser > 70%; caso contrario se clasifica la estimación como de baja confianza.
-- NFR-03: El tiempo máximo de procesamiento de la imagen debe ser <= 30 s.
-- NFR-04: La interfaz gráfica debe ser responsiva para dispositivos móviles (iOS y Android) bajo
+- NFR-02: El tiempo máximo de procesamiento de la imagen debe ser <= 30 s.
+- NFR-03: La interfaz gráfica debe ser responsiva para dispositivos móviles (iOS y Android) bajo
   resoluciones estándar de pantalla entre 240p y 4K.
-- NFR-05: Las imágenes provistas por el usuario nunca se persisten del lado del backend (0
+- NFR-04: Las imágenes provistas por el usuario nunca se persisten del lado del backend (0
   persistencia: ni en disco, ni en base de datos, ni en logs).
 
 ## Acceptance Criteria
@@ -115,28 +109,18 @@ el consumo resultante — quedando asociado al usuario de la sesión activa en l
 - AC-10 (FR-10): WHEN el sistema consulta internamente el modelo de visión, THE system SHALL
   ocultar en la interfaz los detalles técnicos de esa consulta (endpoint, payload, nombre del
   modelo).
-- AC-11 (FR-11): IF el sistema tarda más de 30 segundos o falla al procesar la imagen, THEN THE
-  system SHALL mostrar un mensaje de error al usuario.
-- AC-12 (FR-12): IF el usuario recibió un mensaje de error al procesar su imagen, THEN THE system
-  SHALL permitirle hacer una carga manual de la descripción, cantidad de calorías y desglose
-  nutricional, exigiendo que el desglose sume exactamente 100% en las 4 categorías.
-- AC-13 (FR-13): WHEN el sistema muestra la información de ingredientes, calorías y desglose
+- AC-11 (FR-11): WHEN el sistema muestra la información de ingredientes, calorías y desglose
   nutricional estimados, THE system SHALL permitir al usuario editar estos datos antes de
   guardarlos.
-- AC-14 (FR-14): WHEN el sistema muestra la información estimada a partir de una imagen, THE
+- AC-12 (FR-12): WHEN el sistema muestra la información estimada a partir de una imagen, THE
   system SHALL agregar una línea de texto recordando que la información puede ser inexacta.
-- AC-15 (FR-15): IF la estimación se clasifica con un nivel de confianza <= 70%, THEN THE system
-  SHALL mostrar al usuario una advertencia de baja confianza.
-- AC-16 (FR-16): IF se mostró la advertencia de baja confianza, THEN THE system SHALL darle al
-  usuario la opción de cargar una nueva imagen.
-- AC-17 (FR-17): IF la estimación se clasifica con un nivel de confianza <= 70%, THEN THE system
-  SHALL exigir al usuario editar manualmente la descripción y la cantidad de calorías antes de
-  poder guardar el consumo.
-- AC-18 (FR-18): WHEN el usuario selecciona "Cancelar" en cualquier paso del flujo (selección de
-  imagen, error de procesamiento, carga manual, o revisión de la estimación), THE system SHALL
-  volver al inicio del flujo sin guardar ningún consumo.
-- AC-19 (FR-19): WHEN se guarda un nuevo consumo, THE system SHALL asociarlo al usuario de la
+- AC-13 (FR-13): WHEN el usuario selecciona "Cancelar" en cualquier paso del flujo (selección de
+  imagen, procesamiento, mensaje de error, o revisión de la estimación), THE system SHALL volver al
+  inicio del flujo sin guardar ningún consumo.
+- AC-14 (FR-14): WHEN se guarda un nuevo consumo, THE system SHALL asociarlo al usuario de la
   sesión activa.
+- AC-15 (FR-15): IF el sistema tarda más de 30 segundos o falla al procesar la imagen, THEN THE
+  system SHALL mostrar un mensaje de error al usuario.
 
 > **Nota (AC-06):** el caso de un plato con pechuga de pollo, arroz y una copa de vino tinto, donde
 > se espera que la descripción mencione los tres componentes, es un ejemplo ilustrativo (ya
@@ -145,6 +129,8 @@ el consumo resultante — quedando asociado al usuario de la sesión activa en l
 
 ## Out of Scope
 
+- Carga manual del consumo ante un error de análisis, y advertencia / recarga / edición obligatoria
+  ante estimaciones de baja confianza — cubiertos por **FEAT-001c**.
 - Mecanismo de acceso directo de QA y esquema base de usuarios — cubiertos por **FEAT-001a**, que
   se toma como dependencia.
 - Login real por magic link, pantalla de login y su expiración (RF-01, RF-02, RF-03, RF-03a,
@@ -164,12 +150,13 @@ el consumo resultante — quedando asociado al usuario de la sesión activa en l
 ## Risks and Mitigations
 
 - **Riesgo:** el modelo de visión puede fallar al identificar un ingrediente poco común o mal
-  iluminado → *Mitigación:* aviso de que los valores son estimaciones aproximadas (FR-14); si la
-  confianza es <= 70% (NFR-02), se advierte al usuario, se le ofrece recargar la imagen (FR-15/
-  FR-16) y se exige revisión manual antes de guardar (FR-17).
-- **Riesgo:** el análisis de la imagen puede demorar más de lo esperado por problemas de red o por
-  no poder consultar la API del modelo de visión → *Mitigación:* mensaje de error temporal (FR-11)
-  y carga manual del consumo como alternativa (FR-12).
+  iluminado → *Mitigación:* aviso de que los valores son estimaciones aproximadas (FR-12) y edición
+  de los datos antes de guardar (FR-11). El tratamiento de las estimaciones de baja confianza queda
+  en FEAT-001c.
+- **Riesgo:** el análisis de la imagen puede fallar o demorar más de lo esperado por problemas de
+  red o por no poder consultar la API del modelo de visión → *Mitigación:* el procesamiento se
+  corta a los 30 s (NFR-02), se muestra un mensaje de error (FR-15) y el usuario puede cancelar el
+  flujo (FR-13). La carga manual como alternativa queda en FEAT-001c.
 - **Riesgo:** el usuario puede denegar el permiso de cámara o galería del dispositivo → *Mitigación:*
   mensaje explicando que el permiso es necesario y cómo habilitarlo desde la configuración del
   dispositivo.
@@ -177,7 +164,7 @@ el consumo resultante — quedando asociado al usuario de la sesión activa en l
 ## Dependencies
 
 - **FEAT-001a** (acceso directo de QA): provee el usuario de la sesión activa al que se asocian los
-  consumos (FR-19). Debe estar mergeado antes de implementar la persistencia de consumos.
+  consumos (FR-14). Ya mergeado a main.
 - Next.js 15 (App Router), Node.js 20 LTS — fullstack en un solo código base.
 - PostgreSQL para persistir consumos (con FK al usuario provisto por FEAT-001a).
 - Google AI Studio, modelo `gemini-3.1-flash-lite`, vía la librería `genai`.
