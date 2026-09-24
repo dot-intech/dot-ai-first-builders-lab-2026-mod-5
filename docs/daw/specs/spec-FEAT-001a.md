@@ -405,3 +405,8 @@ muestra el botón, y tras usarlo la página muestra "Conectado como {email}"; co
   específico (no solo por inspección manual).
 - Ningún archivo nuevo loguea el token de sesión ni el email de QA en texto plano fuera de lo
   estrictamente necesario para el log de auditoría descrito en Block 6.
+
+> **Nota 2026-09-24 (FEAT-002):** después de mergeado este ticket, la sesión (servicio, repositorios,
+> cookie, errores y reglas de sesión) y `RepositoryError` se movieron de `src/features/qa-access/` a
+> `src/shared/`, sin cambio de comportamiento. Las rutas de esta spec reflejan el estado de FEAT-001a.
+> Ubicaciones actuales y matriz de dependencias: ADR-007 y `docs/daw/specs/spec-FEAT-002.md`.

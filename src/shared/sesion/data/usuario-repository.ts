@@ -1,10 +1,10 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../../shared/db/client';
-import { usuarios } from '../../../shared/db/schema';
-import { RepositoryError } from '../domain/errors';
+import { db } from '../../db/client';
+import { usuarios } from '../../db/schema';
+import { conRepositoryError } from '../../db/con-repository-error';
+import { RepositoryError } from '../../errors/repository-error';
 import { normalizarEmail } from '../domain/rules';
 import type { Usuario } from '../domain/types';
-import { conRepositoryError } from './errors';
 
 type FilaUsuario = typeof usuarios.$inferSelect;
 

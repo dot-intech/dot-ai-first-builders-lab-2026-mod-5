@@ -3,9 +3,13 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { env } from '../../../env';
-import { QaAccessDeniedError, RepositoryError } from '../domain/errors';
+import { RepositoryError } from '../../../shared/errors/repository-error';
+import {
+  NOMBRE_COOKIE_SESION,
+  opcionesCookieSesion,
+} from '../../../shared/sesion/ui/cookie-sesion';
+import { QaAccessDeniedError } from '../domain/errors';
 import { autenticarAccesoQa } from './acceso-qa';
-import { NOMBRE_COOKIE_SESION, opcionesCookieSesion } from './cookie-sesion';
 import { registrarEventoAccesoQa } from './registro-acceso-qa';
 
 const RUTA_LOGIN = '/dev-login';

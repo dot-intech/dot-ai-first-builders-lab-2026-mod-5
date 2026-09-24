@@ -2,7 +2,7 @@ import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 /**
  * Ubicación compartida a propósito (ver Summary del spec FEAT-001a): FEAT-001b agrega la
- * tabla `consumos` a este mismo schema, sin necesidad de refactor. `qa-access` (Block 4)
+ * tabla `consumos` a este mismo schema, sin necesidad de refactor. `src/shared/sesion/data`
  * importa estas tablas desde aquí en vez de definir su propio schema.
  */
 

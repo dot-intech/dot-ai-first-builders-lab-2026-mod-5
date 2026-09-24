@@ -14,8 +14,8 @@ import {
   type MockInstance,
 } from 'vitest';
 import { sesiones, usuarios } from '../../../shared/db/schema';
+import { NOMBRE_COOKIE_SESION } from '../../../shared/sesion/ui/cookie-sesion';
 import { qaBackdoorLogin } from './actions';
-import { NOMBRE_COOKIE_SESION } from './cookie-sesion';
 
 /**
  * Tests de integración contra la BD de test (TEST_DATABASE_URL), nunca contra la BD real: repositories

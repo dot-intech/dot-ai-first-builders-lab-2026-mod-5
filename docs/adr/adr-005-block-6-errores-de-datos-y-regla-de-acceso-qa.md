@@ -63,3 +63,9 @@ Decididas por el usuario el 2026-09-21: **1B, 2B y 3A**.
   responde 404 aunque `QA_ACCESS_EMAIL` esté configurada.
 - Cualquier test que importe el `client.ts` real con `vi.resetModules()` debe limpiar la clave
   `'__nutrashotDbPool'` de `globalThis`, como hace `client.test.ts`.
+
+> **Nota 2026-09-24 (FEAT-002):** la decisión 2B queda reemplazada en cuanto a la ubicación por
+> ADR-007: `RepositoryError` pasa a `src/shared/errors/repository-error.ts` y `conRepositoryError` a
+> `src/shared/db/con-repository-error.ts`. Su intención sigue vigente: `message` fijo, error original
+> solo en `cause`, `operation` sin datos. La traducción de errores de sesión que hacía la página
+> (1B) pasa a `resolverUsuarioDeSesion` en `src/shared/sesion/ui/`; el log sigue en el caller.

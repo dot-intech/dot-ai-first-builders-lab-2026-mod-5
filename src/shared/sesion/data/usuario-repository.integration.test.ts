@@ -3,8 +3,8 @@ import { inArray } from 'drizzle-orm';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { usuarios } from '../../../shared/db/schema';
-import { RepositoryError } from '../domain/errors';
+import { usuarios } from '../../db/schema';
+import { RepositoryError } from '../../errors/repository-error';
 import { findByEmail, findById, findOrCreateByEmail } from './usuario-repository';
 
 /**
@@ -18,7 +18,7 @@ const holder = vi.hoisted(() => ({ db: undefined as NodePgDatabase | undefined }
 // `db` es un getter (no un valor) porque la factory corre al importar el repository, antes de
 // `beforeAll`, con `holder.db` todavía `undefined`; y porque los tests cambian `holder.db` por un
 // pg falso en cada caso. Con `{ db: holder.db }` el mock quedaría fijo en ese `undefined` inicial.
-vi.mock('../../../shared/db/client', () => ({
+vi.mock('../../db/client', () => ({
   get db() {
     return holder.db;
   },

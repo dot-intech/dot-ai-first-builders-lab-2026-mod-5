@@ -1,4 +1,4 @@
-import { RepositoryError } from '../domain/errors';
+import { RepositoryError } from '../errors/repository-error';
 
 /** Ejecuta una operación de BD y traduce cualquier fallo a `RepositoryError` (sin tragarlo). */
 export async function conRepositoryError<T>(
