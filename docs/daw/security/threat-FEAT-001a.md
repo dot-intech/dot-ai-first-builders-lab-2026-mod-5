@@ -131,3 +131,7 @@ mitigaciones nuevas. Las decisiones están en `docs/adr/` (ADR-001, ADR-002 y AD
 - **Dependencias (W-TM-01).** ADR-003 define el plan que resuelve las 49 vulnerabilidades
   detectadas por `pnpm audit`. Además, desde drizzle-orm 0.44 el `message` de `DrizzleQueryError` incluye SQL y
   parámetros (emails, `token_hash`): los repositories del Block 4 no deben loguearlo ni propagarlo.
+
+> **Nota 2026-09-24 (FEAT-002):** el componente "Sesión / cookie (domain/session-service.ts)" pasó a
+> `src/shared/sesion/` sin cambios de comportamiento; sus mitigaciones y los riesgos aceptados #1 y #2
+> siguen vigentes. Ver ADR-007 y `threat-FEAT-002.md`.

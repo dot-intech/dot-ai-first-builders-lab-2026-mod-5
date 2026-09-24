@@ -43,3 +43,8 @@ Opción 2, decidida por el usuario el 2026-09-21. `domain/session-service.ts` ex
   pieza de `domain` que importa de `data`.
 - El Block 5 suma tests de `iniciarSesionQa` (crea o reutiliza el usuario, crea la sesión con su
   id y devuelve el token crudo).
+
+> **Nota 2026-09-24 (FEAT-002):** enmendada por ADR-007. El servicio de sesión pasa a
+> `src/shared/sesion/domain/session-service.ts` e `iniciarSesionQa` se renombra
+> `iniciarSesionParaEmail`. El principio (la server action accede a datos vía service) se mantiene;
+> el `session-service` compartido es la única pieza de `domain` que importa de `shared/sesion/data`.

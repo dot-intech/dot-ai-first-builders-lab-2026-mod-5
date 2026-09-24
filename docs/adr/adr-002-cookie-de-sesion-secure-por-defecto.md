@@ -42,3 +42,7 @@ fijo: es una cookie de sesión del navegador y la BD aplica la ventana deslizant
   `httpOnly` y `sameSite=lax` no cambian (NFR-02).
 - La cookie no lleva `maxAge` fijo: es una cookie de sesión del navegador y la BD aplica la ventana
   de 24 h de inactividad (NFR-01). Un `maxAge` fijo desloguearía a un usuario activo.
+
+> **Nota 2026-09-24 (FEAT-002):** la decisión sigue vigente, pero cambian las ubicaciones:
+> `cookieSesionEsSecure` pasa a `src/shared/sesion/domain/rules.ts` y la cookie a
+> `src/shared/sesion/ui/cookie-sesion.ts`. Ver ADR-007.
