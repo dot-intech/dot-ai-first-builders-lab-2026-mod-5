@@ -54,6 +54,7 @@ files and **propose the text for you to paste here**. You always confirm it.
 | Test command | pnpm test:unit (unit) · pnpm test:integration (requiere DB) |
 | Lint command | pnpm lint |
 | Typecheck command | pnpm exec tsc --noEmit |
+| Format check command | pnpm exec prettier --check . |
 
 ---
 
