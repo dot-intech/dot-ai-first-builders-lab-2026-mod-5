@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { RepositoryError } from '../../../shared/errors/repository-error';
+import {
+  NOMBRE_COOKIE_SESION,
+  opcionesCookieSesion,
+} from '../../../shared/sesion/ui/cookie-sesion';
 import { QaAccessDeniedError } from '../domain/errors';
 import { autenticarAccesoQa } from './acceso-qa';
 import { qaBackdoorLogin } from './actions';
-import { NOMBRE_COOKIE_SESION, opcionesCookieSesion } from './cookie-sesion';
 
 /**
  * Unitario, sin BD: `autenticarAccesoQa` se simula y aquí se verifican las decisiones de la action

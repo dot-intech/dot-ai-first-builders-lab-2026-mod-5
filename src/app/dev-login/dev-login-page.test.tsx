@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } fr
 import { SessionExpiredError, SessionNotFoundError } from '../../shared/sesion/domain/errors';
 import { RepositoryError } from '../../shared/errors/repository-error';
 import { getSession } from '../../shared/sesion/domain/session-service';
-import { NOMBRE_COOKIE_SESION } from '../../features/qa-access/ui/cookie-sesion';
+import { NOMBRE_COOKIE_SESION } from '../../shared/sesion/ui/cookie-sesion';
 import DevLoginPage, { dynamic } from './page';
 
 type SearchParams = { error?: string | string[] };
