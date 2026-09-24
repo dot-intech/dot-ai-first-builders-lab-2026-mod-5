@@ -5,7 +5,7 @@
 | Ticket | FEAT-002 |
 | Tracker | none |
 | Date | 2026-09-24 |
-| PRD loops | 0 |
+| PRD loops | 1 |
 
 ## Contexto y Problema
 
@@ -43,8 +43,9 @@ usuario de la sesión activa, sin cambiar el comportamiento observable de la apl
 
 ## Functional Requirements
 
-- FR-01: El sistema debe proveer el servicio de sesión (`getSession`, `crearSesion`) desde un módulo
-  compartido en `src/shared/`, y no desde `src/features/qa-access/`.
+- FR-01: El sistema debe proveer el servicio de sesión (`getSession`, `crearSesion` e
+  `iniciarSesionParaEmail`, que reemplaza a `iniciarSesionQa`) desde un módulo compartido en
+  `src/shared/`, y no desde `src/features/qa-access/`.
 - FR-02: El sistema debe proveer los repositorios de sesiones y de usuarios desde el módulo compartido
   de sesión.
 - FR-03: El sistema debe proveer los errores de sesión (`SessionNotFoundError`,
@@ -62,16 +63,17 @@ usuario de la sesión activa, sin cambiar el comportamiento observable de la apl
 - FR-08: La pantalla de acceso QA (`/dev-login`) debe resolver el estado de la sesión usando la
   función compartida de FR-07.
 - FR-09: La feature `qa-access` debe conservar solo lo propio del acceso QA: la regla de entornos
-  permitidos, la comparación con el email de QA, `QaAccessDeniedError`, el inicio de sesión QA, la
-  server action, el registro de eventos y el botón.
+  permitidos, la comparación con el email de QA, `QaAccessDeniedError`, el flujo de acceso QA
+  (`autenticarAccesoQa`), la server action, el registro de eventos y el botón.
 - FR-10: El sistema debe impedir que un módulo de `src/shared/` importe código de `src/features/`,
   mediante un test automatizado.
 
 ## Non-Functional Requirements
 
 - NFR-01: El refactor debe tener 0 cambios de comportamiento observable: el 100% de los tests
-  existentes debe pasar, con cambios limitados a rutas de import, rutas de mocks y ubicación de los
-  archivos de test.
+  existentes debe pasar, con cambios limitados a rutas de import, rutas de mocks, ubicación de los
+  archivos de test y el renombre `iniciarSesionQa` → `iniciarSesionParaEmail` (identificador y título
+  del `describe` que la prueba), aprobado por el usuario el 2026-09-24. 0 aserciones modificadas.
 - NFR-02: La cobertura de tests debe mantenerse >= 80% en líneas, ramas y funciones (umbral de
   `vitest.config.ts`).
 - NFR-03: El refactor debe agregar 0 dependencias nuevas y 0 migraciones de base de datos.
@@ -80,8 +82,9 @@ usuario de la sesión activa, sin cambiar el comportamiento observable de la apl
 
 ## Acceptance Criteria
 
-- AC-01 (FR-01): WHEN una feature o página necesita validar o crear una sesión, THE system SHALL
-  importar `getSession` y `crearSesion` desde el módulo compartido de sesión en `src/shared/`.
+- AC-01 (FR-01): WHEN una feature o página necesita validar, crear o iniciar una sesión, THE system
+  SHALL importar `getSession`, `crearSesion` o `iniciarSesionParaEmail` desde el módulo compartido de
+  sesión en `src/shared/`.
 - AC-02 (FR-02): WHEN el servicio de sesión accede a la base de datos, THE system SHALL usar los
   repositorios de sesiones y de usuarios del módulo compartido de sesión.
 - AC-03 (FR-03): IF un token de sesión no existe o superó la ventana de inactividad, THEN THE system
