@@ -1,4 +1,5 @@
-import { RepositoryError, SessionExpiredError, SessionNotFoundError } from '../domain/errors';
+import { RepositoryError } from '../../../shared/errors/repository-error';
+import { SessionExpiredError, SessionNotFoundError } from '../domain/errors';
 import { getSession } from '../domain/session-service';
 import { registrarEventoAccesoQa } from './registro-acceso-qa';
 

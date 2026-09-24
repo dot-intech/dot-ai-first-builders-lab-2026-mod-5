@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as sesionRepository from '../data/sesion-repository';
 import * as usuarioRepository from '../data/usuario-repository';
-import { RepositoryError, SessionExpiredError, SessionNotFoundError } from './errors';
+import { RepositoryError } from '../../../shared/errors/repository-error';
+import { SessionExpiredError, SessionNotFoundError } from './errors';
 import { INACTIVIDAD_MAXIMA_MS } from './rules';
 import { crearSesion, getSession, iniciarSesionQa } from './session-service';
 import type { Sesion, Usuario } from './types';

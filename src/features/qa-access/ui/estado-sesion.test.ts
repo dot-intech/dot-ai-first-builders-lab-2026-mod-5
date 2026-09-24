@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { RepositoryError, SessionExpiredError, SessionNotFoundError } from '../domain/errors';
+import { RepositoryError } from '../../../shared/errors/repository-error';
+import { SessionExpiredError, SessionNotFoundError } from '../domain/errors';
 import { getSession } from '../domain/session-service';
 import type { Usuario } from '../domain/types';
 import { resolverEstadoSesion } from './estado-sesion';

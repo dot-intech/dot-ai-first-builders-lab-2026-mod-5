@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { QaAccessDeniedError, RepositoryError } from '../domain/errors';
+import { RepositoryError } from '../../../shared/errors/repository-error';
+import { QaAccessDeniedError } from '../domain/errors';
 import { autenticarAccesoQa } from './acceso-qa';
 import { qaBackdoorLogin } from './actions';
 import { NOMBRE_COOKIE_SESION, opcionesCookieSesion } from './cookie-sesion';

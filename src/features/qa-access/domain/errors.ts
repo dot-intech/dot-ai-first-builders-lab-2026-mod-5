@@ -35,21 +35,3 @@ export class SessionNotFoundError extends Error {
     this.name = 'SessionNotFoundError';
   }
 }
-
-/**
- * Fallo de conexión o de query en la capa de datos, ya traducido a un error propio. Vive en `domain`
- * para que la UI pueda distinguirlo sin importar de `data`.
- *
- * Desde drizzle-orm 0.44 el `message` del error original incluye el SQL y sus parámetros (emails,
- * `token_hash`), por eso este `message` es fijo y el original viaja solo en `cause`: nunca debe
- * copiarse ni interpolarse. `operation` es una etiqueta propia (sin datos) para el log del servidor.
- */
-export class RepositoryError extends Error {
-  readonly operation: string;
-
-  constructor(operation: string, options?: ErrorOptions) {
-    super('Error de acceso a datos', options);
-    this.name = 'RepositoryError';
-    this.operation = operation;
-  }
-}

@@ -1,10 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import {
-  RepositoryError,
-  SessionExpiredError,
-  SessionNotFoundError,
-} from '../../features/qa-access/domain/errors';
+import { SessionExpiredError, SessionNotFoundError } from '../../features/qa-access/domain/errors';
+import { RepositoryError } from '../../shared/errors/repository-error';
 import { getSession } from '../../features/qa-access/domain/session-service';
 import { NOMBRE_COOKIE_SESION } from '../../features/qa-access/ui/cookie-sesion';
 import DevLoginPage, { dynamic } from './page';

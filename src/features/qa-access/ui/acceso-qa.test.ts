@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { QaAccessDeniedError, RepositoryError } from '../domain/errors';
+import { RepositoryError } from '../../../shared/errors/repository-error';
+import { QaAccessDeniedError } from '../domain/errors';
 import { iniciarSesionQa } from '../domain/session-service';
 import { autenticarAccesoQa } from './acceso-qa';
 
