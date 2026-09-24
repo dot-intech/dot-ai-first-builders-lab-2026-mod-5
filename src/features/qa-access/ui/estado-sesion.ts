@@ -1,6 +1,6 @@
 import { RepositoryError } from '../../../shared/errors/repository-error';
-import { SessionExpiredError, SessionNotFoundError } from '../domain/errors';
-import { getSession } from '../domain/session-service';
+import { SessionExpiredError, SessionNotFoundError } from '../../../shared/sesion/domain/errors';
+import { getSession } from '../../../shared/sesion/domain/session-service';
 import { registrarEventoAccesoQa } from './registro-acceso-qa';
 
 export type EstadoSesion =

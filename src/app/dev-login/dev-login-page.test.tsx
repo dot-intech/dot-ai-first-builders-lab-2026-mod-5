@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { SessionExpiredError, SessionNotFoundError } from '../../features/qa-access/domain/errors';
+import { SessionExpiredError, SessionNotFoundError } from '../../shared/sesion/domain/errors';
 import { RepositoryError } from '../../shared/errors/repository-error';
-import { getSession } from '../../features/qa-access/domain/session-service';
+import { getSession } from '../../shared/sesion/domain/session-service';
 import { NOMBRE_COOKIE_SESION } from '../../features/qa-access/ui/cookie-sesion';
 import DevLoginPage, { dynamic } from './page';
 
@@ -20,9 +20,9 @@ vi.mock('../../env', () => ({
     return { nodeEnv: holder.nodeEnv, qaAccessEmail: undefined };
   },
 }));
-vi.mock('../../features/qa-access/domain/session-service', () => ({
+vi.mock('../../shared/sesion/domain/session-service', () => ({
   getSession: vi.fn(),
-  iniciarSesionQa: vi.fn(),
+  iniciarSesionParaEmail: vi.fn(),
 }));
 vi.mock('next/headers', () => ({
   cookies: async () => ({ get: holder.cookieGet }),

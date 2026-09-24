@@ -15,6 +15,8 @@ export default defineConfig({
         'src/**/*.integration.test.{ts,tsx}',
         // Solo declara tipos: no tiene código ejecutable que medir.
         'src/features/**/domain/types.ts',
+        // Solo declara tipos: no tiene código ejecutable que medir.
+        'src/shared/**/domain/types.ts',
       ],
       thresholds: {
         lines: 80,

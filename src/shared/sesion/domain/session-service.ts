@@ -30,10 +30,13 @@ export async function crearSesion(usuarioId: string, now: Date = new Date()): Pr
 }
 
 /**
- * Inicio de sesión del acceso QA (ADR-004): crea o reutiliza el usuario y le abre una sesión.
- * No valida entorno ni email de QA: eso es responsabilidad de quien llama (la server action).
+ * Abre una sesión para `email`: crea o reutiliza el usuario y devuelve el token crudo para la cookie.
+ *
+ * Contrato (ADR-007): no verifica identidad ni aplica reglas de ninguna feature. El caller debe haber
+ * verificado la identidad antes; nunca se llama con un email que venga del cliente sin verificar,
+ * porque abriría una sesión para ese email.
  */
-export async function iniciarSesionQa(email: string): Promise<string> {
+export async function iniciarSesionParaEmail(email: string): Promise<string> {
   const usuario = await findOrCreateByEmail(email);
   return crearSesion(usuario.id);
 }

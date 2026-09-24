@@ -1,8 +1,8 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../../../shared/db/client';
-import { usuarios } from '../../../shared/db/schema';
-import { conRepositoryError } from '../../../shared/db/con-repository-error';
-import { RepositoryError } from '../../../shared/errors/repository-error';
+import { db } from '../../db/client';
+import { usuarios } from '../../db/schema';
+import { conRepositoryError } from '../../db/con-repository-error';
+import { RepositoryError } from '../../errors/repository-error';
 import { normalizarEmail } from '../domain/rules';
 import type { Usuario } from '../domain/types';
 

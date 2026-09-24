@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RepositoryError } from '../../../shared/errors/repository-error';
 import { QaAccessDeniedError } from '../domain/errors';
-import { iniciarSesionQa } from '../domain/session-service';
+import { iniciarSesionParaEmail } from '../../../shared/sesion/domain/session-service';
 import { autenticarAccesoQa } from './acceso-qa';
 
 // Factory explícita: el automock importaría los repositories reales y con ellos `client.ts`/`env.ts`.
-vi.mock('../domain/session-service', () => ({
-  iniciarSesionQa: vi.fn(),
+vi.mock('../../../shared/sesion/domain/session-service', () => ({
+  iniciarSesionParaEmail: vi.fn(),
 }));
 
 const EMAIL_QA = 'qa@example.com';
@@ -14,7 +14,7 @@ const TOKEN = 'token-crudo-de-prueba';
 
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(iniciarSesionQa).mockResolvedValue(TOKEN);
+  vi.mocked(iniciarSesionParaEmail).mockResolvedValue(TOKEN);
 });
 
 describe('acceso-qa/autenticarAccesoQa', () => {
@@ -38,7 +38,7 @@ describe('acceso-qa/autenticarAccesoQa', () => {
           autenticarAccesoQa({ nodeEnv, qaAccessEmail: EMAIL_QA }),
         ).rejects.toBeInstanceOf(QaAccessDeniedError);
 
-        expect(iniciarSesionQa).not.toHaveBeenCalled();
+        expect(iniciarSesionParaEmail).not.toHaveBeenCalled();
       },
     );
 
@@ -70,7 +70,7 @@ describe('acceso-qa/autenticarAccesoQa', () => {
         autenticarAccesoQa({ nodeEnv: 'development', qaAccessEmail: undefined }),
       ).rejects.toBeInstanceOf(QaAccessDeniedError);
 
-      expect(iniciarSesionQa).not.toHaveBeenCalled();
+      expect(iniciarSesionParaEmail).not.toHaveBeenCalled();
     });
   });
 
@@ -83,14 +83,14 @@ describe('acceso-qa/autenticarAccesoQa', () => {
           qaAccessEmail: '  QA@Example.COM ',
         });
 
-        expect(iniciarSesionQa).toHaveBeenCalledExactlyOnceWith(EMAIL_QA);
+        expect(iniciarSesionParaEmail).toHaveBeenCalledExactlyOnceWith(EMAIL_QA);
         expect(token).toBe(TOKEN);
       },
     );
 
     it('debe propagar el RepositoryError del service sin capturarlo', async () => {
       const errorDeDatos = new RepositoryError('sesion.create');
-      vi.mocked(iniciarSesionQa).mockRejectedValue(errorDeDatos);
+      vi.mocked(iniciarSesionParaEmail).mockRejectedValue(errorDeDatos);
 
       await expect(
         autenticarAccesoQa({ nodeEnv: 'development', qaAccessEmail: EMAIL_QA }),

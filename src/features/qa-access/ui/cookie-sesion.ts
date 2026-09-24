@@ -1,4 +1,4 @@
-import { cookieSesionEsSecure } from '../domain/rules';
+import { cookieSesionEsSecure } from '../../../shared/sesion/domain/rules';
 
 export const NOMBRE_COOKIE_SESION = 'nutrashot_session';
 

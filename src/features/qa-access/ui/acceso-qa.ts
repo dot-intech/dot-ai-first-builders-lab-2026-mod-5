@@ -1,6 +1,7 @@
+import { normalizarEmail } from '../../../shared/sesion/domain/rules';
+import { iniciarSesionParaEmail } from '../../../shared/sesion/domain/session-service';
 import { QaAccessDeniedError } from '../domain/errors';
-import { esEntornoPermitidoParaAccesoQa, normalizarEmail } from '../domain/rules';
-import { iniciarSesionQa } from '../domain/session-service';
+import { esEntornoPermitidoParaAccesoQa } from '../domain/rules';
 
 type ConfiguracionAccesoQa = {
   nodeEnv: string;
@@ -22,5 +23,5 @@ export async function autenticarAccesoQa(config: ConfiguracionAccesoQa): Promise
     throw new QaAccessDeniedError('not_configured');
   }
 
-  return iniciarSesionQa(email);
+  return iniciarSesionParaEmail(email);
 }

@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { RepositoryError } from '../../../shared/errors/repository-error';
-import { SessionExpiredError, SessionNotFoundError } from '../domain/errors';
-import { getSession } from '../domain/session-service';
-import type { Usuario } from '../domain/types';
+import { SessionExpiredError, SessionNotFoundError } from '../../../shared/sesion/domain/errors';
+import { getSession } from '../../../shared/sesion/domain/session-service';
+import type { Usuario } from '../../../shared/sesion/domain/types';
 import { resolverEstadoSesion } from './estado-sesion';
 
 // Factory explícita: el automock importaría los repositories reales y con ellos `client.ts`/`env.ts`.
-vi.mock('../domain/session-service', () => ({
+vi.mock('../../../shared/sesion/domain/session-service', () => ({
   getSession: vi.fn(),
 }));
 

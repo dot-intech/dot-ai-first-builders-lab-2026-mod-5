@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  QaAccessDeniedError,
-  SessionExpiredError,
-  SessionNotFoundError,
-  type QaAccessDeniedReason,
-} from './errors';
+import { SessionExpiredError, SessionNotFoundError } from '../../../shared/sesion/domain/errors';
+import { QaAccessDeniedError, type QaAccessDeniedReason } from './errors';
 
 const RAZONES: QaAccessDeniedReason[] = ['environment_not_allowed', 'not_configured'];
 

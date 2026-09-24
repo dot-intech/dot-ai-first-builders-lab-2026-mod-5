@@ -3,10 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as sesionRepository from '../data/sesion-repository';
 import * as usuarioRepository from '../data/usuario-repository';
-import { RepositoryError } from '../../../shared/errors/repository-error';
+import { RepositoryError } from '../../errors/repository-error';
 import { SessionExpiredError, SessionNotFoundError } from './errors';
 import { INACTIVIDAD_MAXIMA_MS } from './rules';
-import { crearSesion, getSession, iniciarSesionQa } from './session-service';
+import { crearSesion, getSession, iniciarSesionParaEmail } from './session-service';
 import type { Sesion, Usuario } from './types';
 
 // Los dos repositories se mockean con factory explícita: el automock de vitest importa el módulo
@@ -116,12 +116,12 @@ describe('session-service/crearSesion', () => {
   });
 });
 
-describe('session-service/iniciarSesionQa', () => {
+describe('session-service/iniciarSesionParaEmail', () => {
   it('debe llamar a findOrCreateByEmail con el email recibido', async () => {
     vi.mocked(usuarioRepository.findOrCreateByEmail).mockResolvedValue(usuario);
     vi.mocked(sesionRepository.create).mockResolvedValue(sesionConActividad(AHORA));
 
-    await iniciarSesionQa(usuario.email);
+    await iniciarSesionParaEmail(usuario.email);
 
     expect(usuarioRepository.findOrCreateByEmail).toHaveBeenCalledWith(usuario.email);
   });
@@ -130,7 +130,7 @@ describe('session-service/iniciarSesionQa', () => {
     vi.mocked(usuarioRepository.findOrCreateByEmail).mockResolvedValue(usuario);
     vi.mocked(sesionRepository.create).mockResolvedValue(sesionConActividad(AHORA));
 
-    await iniciarSesionQa(usuario.email);
+    await iniciarSesionParaEmail(usuario.email);
 
     const [nueva] = primerLlamadoACreate();
     expect(nueva.usuarioId).toBe(usuario.id);
@@ -140,7 +140,7 @@ describe('session-service/iniciarSesionQa', () => {
     vi.mocked(usuarioRepository.findOrCreateByEmail).mockResolvedValue(usuario);
     vi.mocked(sesionRepository.create).mockResolvedValue(sesionConActividad(AHORA));
 
-    const token = await iniciarSesionQa(usuario.email);
+    const token = await iniciarSesionParaEmail(usuario.email);
 
     const [nueva] = primerLlamadoACreate();
     expect(token).toMatch(/^[0-9a-f]{64}$/);
@@ -151,7 +151,7 @@ describe('session-service/iniciarSesionQa', () => {
     const errorDeRepository = new RepositoryError('usuario.findOrCreateByEmail');
     vi.mocked(usuarioRepository.findOrCreateByEmail).mockRejectedValue(errorDeRepository);
 
-    await expect(iniciarSesionQa(usuario.email)).rejects.toBe(errorDeRepository);
+    await expect(iniciarSesionParaEmail(usuario.email)).rejects.toBe(errorDeRepository);
     expect(sesionRepository.create).not.toHaveBeenCalled();
   });
 
@@ -160,7 +160,7 @@ describe('session-service/iniciarSesionQa', () => {
     vi.mocked(usuarioRepository.findOrCreateByEmail).mockResolvedValue(usuario);
     vi.mocked(sesionRepository.create).mockRejectedValue(errorDeRepository);
 
-    await expect(iniciarSesionQa(usuario.email)).rejects.toBe(errorDeRepository);
+    await expect(iniciarSesionParaEmail(usuario.email)).rejects.toBe(errorDeRepository);
   });
 });
 
