@@ -39,3 +39,6 @@ de configuración es `esbuild: { jsx: 'automatic' }` en `vitest.config.ts`.
 - Cuando FEAT-001b agregue UI interactiva (subida de foto, edición del análisis) hay que reevaluar
   esta decisión con una ADR nueva.
 - Los `.tsx` entran en la cobertura (`src/**/*.{ts,tsx}`); las páginas y el layout tienen tests de humo.
+
+> **Nota 2026-09-25 (FEAT-001b):** reevaluada en ADR-008. Se mantiene sin librerías nuevas, con la
+> lógica en un reductor puro y el cableado de eventos fuera de cobertura.
