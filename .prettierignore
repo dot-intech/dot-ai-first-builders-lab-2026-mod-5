@@ -1,0 +1,9 @@
+# Documentación y artefactos de DAW: markdown escrito a mano o instalado por DAW, no código del proyecto.
+.claude/
+.daw/
+docs/
+*.md
+
+# Archivos generados por herramientas: se regeneran y no se editan a mano.
+pnpm-lock.yaml
+drizzle/migrations/meta/
