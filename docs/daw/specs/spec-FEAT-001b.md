@@ -5,8 +5,8 @@
 | Ticket | FEAT-001b |
 | PRD | docs/daw/prd/prd-FEAT-001b.md |
 | Tier | FEATURE |
-| Date | 2026-09-25 |
-| Spec loops | 1 |
+| Date | 2026-09-26 |
+| Spec loops | 2 |
 
 ## Summary
 
@@ -65,7 +65,7 @@ tipos (2.24.0): `ai.models.generateContent({ model, contents, config })`, `confi
 | FR-14 | Block 2, Block 5, Block 6 |
 | FR-15 | Block 4, Block 6, Block 7, Block 8 |
 | NFR-01 | Strategy: una sola llamada al modelo más liviano del Stack (`gemini-3.1-flash-lite`), imagen reducida en el cliente a ~1280 px / < ~900 KB antes de subir (menos transferencia en 4G y menos tokens de imagen), sin reintentos del SDK y sin pasos intermedios en el servidor (no se decodifica la imagen). Se mide a mano en VERIFY con la key real (10 fotos, se reporta el p95); no es automatizable porque depende del servicio externo |
-| NFR-02 | Strategy: `abortSignal: AbortSignal.timeout(25_000)` en el servidor (Block 4) + temporizador de 30 s en el cliente que pasa el flujo a error (Block 7); ninguna espera supera 30 s desde el envío |
+| NFR-02 | Strategy: `abortSignal: AbortSignal.timeout(25_000)` en el servidor (Block 4) + temporizador de 30 s en el cliente que arranca al elegir la imagen (incluye el reencodeo) y pasa el flujo a error (Blocks 7 y 8); ninguna espera supera 30 s desde que el usuario eligió la foto |
 | NFR-03 | Strategy: CSS Modules mobile-first (ADR-008): una columna fluida (`width: 100%`, `max-width: 32rem`, centrada), tipografía y controles en `rem`, inputs y botones con alto mínimo táctil de 44 px, imágenes con `max-width: 100%`; Next agrega `<meta name="viewport">` por defecto. Verificación manual en VERIFY a 426×240 (240p), 360×640 y 3840×2160 (4K) |
 | NFR-04 | Strategy: la imagen solo existe en memoria del request (`Uint8Array` → base64 hacia Google); ningún `fs`, ni columna, ni log la recibe; errores del SDK envueltos con mensaje fijo y `registro-consumo.ts` copia campo por campo (Blocks 4 y 6, M-4, M-6, M-7). Tests que espían `console.*` y verifican que no aparece el base64 |
 
@@ -191,10 +191,12 @@ da por terminado: se descarta la migración y se consulta al usuario.
 - `esJpeg(bytes: Uint8Array): boolean` — primeros 3 bytes `FF D8 FF`.
 - `validarImagen(bytes: Uint8Array): void` — vacía, mayor a `IMAGEN_MAX_BYTES` o no JPEG →
   `AnalisisImagenError('imagen-invalida')` (M-4, A9).
-- `normalizarDesglose(crudo: { carbohidratos; proteinas; grasas; otros }): DesgloseNutricional` —
-  valores finitos y ≥ 0 con suma > 0; escala a 100 y reparte el redondeo por mayor resto (empates por
-  orden fijo carbohidratos → proteinas → grasas → otros). Degenerado (negativo, `NaN`, infinito o suma
-  0) → `AnalisisImagenError('respuesta-invalida')`.
+- `normalizarDesglose(crudo: { carbohidratos; proteinas; grasas; otros }, calorias: number):
+  DesgloseNutricional` — valores finitos y ≥ 0 con suma > 0; escala a 100 y reparte el redondeo por
+  mayor resto (empates por orden fijo carbohidratos → proteinas → grasas → otros). **Consumo de 0 kcal**
+  (agua, café solo): si `calorias === 0` y los 4 valores son 0 → `{ carbohidratos: 0, proteinas: 0,
+  grasas: 0, otros: 100 }`, para cumplir la suma 100 de FR-08 y el CHECK de la BD. Degenerado
+  (negativo, `NaN`, infinito, o suma 0 con `calorias > 0`) → `AnalisisImagenError('respuesta-invalida')`.
 - `sumaDesglose(d): number` — suma simple, la usa la UI para avisar antes de guardar.
 - `validarDatosConsumo(entrada: unknown): DatosConsumo` — construye un objeto **nuevo** solo con
   `descripcion`, `calorias`, `desglose` y `origen`; cualquier otro campo (p. ej. `usuarioId`) se
@@ -213,6 +215,7 @@ da por terminado: se descarta la migración y se consulta al usuario.
 **Error handling**
 - Imagen vacía, grande o no JPEG → `AnalisisImagenError('imagen-invalida')`.
 - Desglose del modelo degenerado → `AnalisisImagenError('respuesta-invalida')`.
+- Desglose todo en 0 con 0 kcal → no es error: `otros: 100`.
 - Entrada que no es objeto → `DatosConsumoInvalidosError('forma')`.
 - Descripción vacía, no string o > 500 → `DatosConsumoInvalidosError('descripcion')`.
 - Calorías no enteras o fuera de 0..10000 → `DatosConsumoInvalidosError('calorias')`.
@@ -223,7 +226,8 @@ da por terminado: se descarta la migración y se consulta al usuario.
 - [ ] `normalizarDesglose` con `{ 33.3, 33.3, 33.3, 0.1 }` devuelve enteros que suman exactamente 100 (validates AC-08).
 - [ ] `normalizarDesglose` con valores que ya suman 100 los devuelve iguales; con suma 50 los escala al doble (validates AC-08).
 - [ ] `normalizarDesglose` resuelve empates en el orden fijo documentado.
-- [ ] Error handling: `normalizarDesglose` con negativo, `NaN`, `Infinity` o suma 0 → `AnalisisImagenError` con `reason: 'respuesta-invalida'`.
+- [ ] `normalizarDesglose` con los 4 valores en 0 y `calorias = 0` → `{ 0, 0, 0, otros: 100 }` (validates AC-08).
+- [ ] Error handling: `normalizarDesglose` con negativo, `NaN`, `Infinity`, o suma 0 con `calorias = 150` → `AnalisisImagenError` con `reason: 'respuesta-invalida'`.
 - [ ] `validarImagen` acepta un JPEG mínimo (`FF D8 FF …`).
 - [ ] Error handling: `validarImagen` con 0 bytes, con 950 001 bytes, con un PNG (`89 50 4E 47`) y con texto → `reason: 'imagen-invalida'`.
 - [ ] `validarDatosConsumo` con datos válidos devuelve un objeto nuevo, con `descripcion` sin espacios de borde (validates AC-11).
@@ -310,7 +314,8 @@ da por terminado: se descarta la migración y se consulta al usuario.
 **Logic**
 Único archivo de `domain` que importa de `data/` (A6, nota de ADR-007).
 - `analizarImagen(bytes: Uint8Array): Promise<EstimacionNutricional>` → `validarImagen` →
-  `analizarConModeloVision` → `normalizarDesglose` → estimación con `calorias` entero.
+  `analizarConModeloVision` → `normalizarDesglose(crudo.desglose, crudo.calorias)` → estimación con
+  `calorias` entero.
 - `guardarConsumo(usuarioId: string, entrada: unknown): Promise<Consumo>` → `validarDatosConsumo` →
   `crearConsumo({ ...datos, usuarioId })`. `usuarioId` llega por parámetro (lo resuelve la capa ui
   desde la sesión) y nunca desde `entrada` (M-1).
@@ -326,7 +331,8 @@ da por terminado: se descarta la migración y se consulta al usuario.
 - [ ] `analizarImagen` con JPEG válido llama al adaptador y devuelve el desglose normalizado a 100 (validates AC-05, AC-06, AC-07, AC-08).
 - [ ] Error handling: `analizarImagen` con bytes PNG → `AnalisisImagenError('imagen-invalida')` sin llamar al adaptador.
 - [ ] Error handling: el adaptador lanza `AnalisisImagenError('timeout')` → se propaga igual (validates AC-15).
-- [ ] Error handling: el adaptador devuelve porcentajes todos en 0 → `AnalisisImagenError('respuesta-invalida')`.
+- [ ] Error handling: el adaptador devuelve porcentajes todos en 0 con calorías > 0 → `AnalisisImagenError('respuesta-invalida')`.
+- [ ] El adaptador devuelve 0 kcal y porcentajes todos en 0 → estimación con `otros: 100` (validates AC-08).
 - [ ] `guardarConsumo('u-1', datos)` llama a `crearConsumo` con `usuarioId: 'u-1'` aunque `datos` traiga `usuarioId: 'otro'` (validates AC-14).
 - [ ] `guardarConsumo` con `origen: 'camara'` y con `origen: 'galeria'` persiste ese origen (validates AC-02, AC-04).
 - [ ] Error handling: datos que suman 99 → `DatosConsumoInvalidosError` sin llamar al repository.
@@ -437,13 +443,18 @@ de `features/qa-access` (lo comprueba el guardián existente).
 
 **Logic**
 - Estados: `inicio` · `procesando { solicitudId, origen }` · `revision { solicitudId, origen, borrador,
-  aviso?: 'desglose-no-suma-100' | 'datos-invalidos' }` · `guardando { solicitudId, origen, borrador }`
-  · `guardado` · `error { origen? }`. `borrador` guarda los campos editables como strings.
+  aviso?: 'desglose-no-suma-100' | 'datos-invalidos' | 'error-al-guardar' }` · `guardando { solicitudId,
+  origen, borrador }` · `guardado` · `error`. `borrador` guarda los campos editables como strings.
 - Eventos: `imagen-elegida { origen, solicitudId }`, `analisis-ok { solicitudId, estimacion }`,
   `analisis-fallo { solicitudId }`, `tiempo-agotado { solicitudId }`, `campo-editado { campo, valor }`,
   `guardar { solicitudId }`, `guardado-ok { solicitudId }`, `guardado-fallo { solicitudId, tipo:
-  'datos-invalidos' | 'error' }`, `sin-sesion`, `cancelar`, `reintentar`.
-- `cancelar` desde cualquier estado → `inicio`, sin datos (FR-13). Un evento con `solicitudId` distinto
+  'datos-invalidos' | 'error' }`, `sin-sesion`, `cancelar`, `reintentar`, `registrar-otro`.
+- `cancelar` desde `inicio`, `procesando`, `revision` y `error` → `inicio`, sin datos (FR-13, AC-13).
+  En `guardando` se ignora (mismo estado): el insert ya está en camino y "cancelar" mentiría; por eso
+  esa pantalla no ofrece Cancelar. AC-13 no incluye el paso de guardado.
+- `reintentar` solo en `error` → `inicio` (el usuario vuelve a sacar o elegir la foto; la foto anterior
+  no se retiene). `registrar-otro` solo en `guardado` → `inicio`.
+- `guardar` solo en `revision`; en `guardando` (doble clic) se ignora. Un evento con `solicitudId` distinto
   del vigente se ignora (A7, M-11). `tiempo-agotado` en `procesando` → `error` (NFR-02). `guardar` con
   un borrador cuyos porcentajes no suman 100 (usa `sumaDesglose`) → sigue en `revision` con
   `aviso: 'desglose-no-suma-100'` y no pasa a `guardando`.
@@ -466,7 +477,10 @@ de `features/qa-access` (lo comprueba el guardián existente).
   `guardado` → `guardado-ok`; `datos-invalidos` / `error` → `guardado-fallo` con ese tipo;
   `sin-sesion` → `sin-sesion`; `guardar` que rechaza → `guardado-fallo` `error`. Nunca lanza.
 - El contenedor (Block 8) solo despacha lo que devuelven estas dos funciones y el evento del
-  temporizador; no decide nada (ADR-008).
+  temporizador; no decide nada (ADR-008). `procesarGuardado` se ejecuta **solo en reacción a la
+  transición a `guardando`** (efecto ligado a `estado.tipo === 'guardando'` y su `solicitudId`), nunca
+  directamente en el clic de "Guardar": así un doble clic o un desglose que no suma 100 no llaman a la
+  action (un solo insert por solicitud).
 
 **Input validation**
 - `campo-editado`: `campo` en `descripcion | calorias | carbohidratos | proteinas | grasas | otros`;
@@ -475,7 +489,8 @@ de `features/qa-access` (lo comprueba el guardián existente).
 
 **Error handling**
 - `analisis-fallo` o `tiempo-agotado` vigentes → `error` (FR-15).
-- `guardado-fallo` `datos-invalidos` → `revision` con `aviso: 'datos-invalidos'`; `error` → `error`.
+- `guardado-fallo` `datos-invalidos` → `revision` con `aviso: 'datos-invalidos'`; `error` → `revision`
+  con `aviso: 'error-al-guardar'`, conservando el borrador editado (no se pierde lo editado).
 - `sin-sesion` → `inicio`; el contenedor además pide `router.refresh()` y la página redirige (Block 8).
 - Evento no vigente o no válido para el estado actual → mismo estado (sin lanzar).
 - `calcularDimensiones` con 0 o negativos → `RangeError`.
@@ -489,14 +504,18 @@ de `features/qa-access` (lo comprueba el guardián existente).
 - [ ] `analisis-ok` vigente → `revision` con el borrador precargado con descripción, calorías y los 4 porcentajes (validates AC-06, AC-07, AC-08, AC-11).
 - [ ] `campo-editado` actualiza solo ese campo del borrador (validates AC-11).
 - [ ] `guardar` con porcentajes que suman 100 → `guardando`; `guardado-ok` → `guardado` (validates AC-02, AC-04).
-- [ ] `cancelar` desde `inicio`, `procesando`, `revision`, `guardando` y `error` → `inicio` (validates AC-13).
+- [ ] Error handling: un segundo `guardar` en `guardando` devuelve el mismo estado (doble clic).
+- [ ] `cancelar` desde `inicio`, `procesando`, `revision` y `error` → `inicio` (validates AC-13).
+- [ ] `cancelar` en `guardando` devuelve el mismo estado.
+- [ ] `reintentar` en `error` → `inicio` (validates AC-15).
+- [ ] `registrar-otro` en `guardado` → `inicio`.
 - [ ] Error handling: `analisis-fallo` vigente → `error` (validates AC-15).
 - [ ] Error handling: `tiempo-agotado` vigente en `procesando` → `error` (validates AC-15).
 - [ ] Error handling: `analisis-ok` con `solicitudId` viejo (después de `cancelar` o `tiempo-agotado`) se ignora.
 - [ ] Error handling: `guardar` con porcentajes que suman 99 → `revision` con `aviso: 'desglose-no-suma-100'`.
-- [ ] Error handling: `guardado-fallo` `datos-invalidos` → `revision` con aviso; `error` → `error`.
+- [ ] Error handling: `guardado-fallo` `datos-invalidos` → `revision` con `aviso: 'datos-invalidos'`; `error` → `revision` con `aviso: 'error-al-guardar'` y el mismo borrador.
 - [ ] Error handling: `sin-sesion` → `inicio`.
-- [ ] Error handling: eventos no válidos para el estado (`guardar` en `inicio`, `analisis-ok` en `revision`, `campo-editado` en `procesando`) devuelven el mismo estado sin lanzar.
+- [ ] Error handling: eventos no válidos para el estado (`guardar` en `inicio`, `analisis-ok` en `revision`, `campo-editado` en `procesando`, `reintentar` en `revision`, `registrar-otro` en `inicio`) devuelven el mismo estado sin lanzar.
 - [ ] `procesarImagen` con resultado `estimacion` → `analisis-ok` con el `solicitudId` y la estimación (validates AC-06).
 - [ ] Error handling: `procesarImagen` con `reencodear` que lanza `ImagenNoProcesableError('no-legible')` y `('demasiado-grande')` → `analisis-fallo`, sin llamar a `analizar` (validates AC-15).
 - [ ] Error handling: `procesarImagen` con `analizar` que rechaza (simula cuerpo > 1 MB) y con resultado `{ tipo: 'error' }` → `analisis-fallo` (validates AC-15).
@@ -537,15 +556,21 @@ de `features/qa-access` (lo comprueba el guardián existente).
   - `PantallaProcesando`: indicador (`role="status"`, texto "Analizando tu foto…") y "Cancelar".
   - `PantallaRevision`: formulario editable (descripción, calorías, 4 porcentajes con las etiquetas
     "Carbohidratos", "Proteínas", "Grasas" y "Otros Nutrientes"), la línea "Esta información es una
-    estimación y puede ser inexacta.", el aviso cuando corresponda, "Guardar" y "Cancelar".
+    estimación y puede ser inexacta.", el aviso cuando corresponda ("Los porcentajes deben sumar 100.",
+    "Revisá los datos: hay valores que no son válidos." o "No pudimos guardar. Probá de nuevo."),
+    "Guardar" y "Cancelar".
+  - `PantallaGuardando`: indicador (`role="status"`, texto "Guardando…") **sin** "Cancelar".
   - `PantallaError`: "No pudimos analizar la imagen. Probá de nuevo." + "Reintentar" + "Cancelar".
-  - `PantallaGuardado`: "Consumo guardado" + "Registrar otro".
+  - `PantallaGuardado`: "Consumo guardado" + "Registrar otro" (despacha `registrar-otro`).
+  - "Reintentar" de `PantallaError` despacha `reintentar` (vuelve a elegir foto).
   Ninguna muestra endpoint, payload, nombre de modelo ni texto de errores (FR-10). Sin
   `dangerouslySetInnerHTML` (M-10).
 - `nuevo-consumo.tsx`: `useReducer` con el reductor del Block 7, genera `solicitudId`
   (`crypto.randomUUID()`), llama a `procesarImagen`/`procesarGuardado` inyectando
-  `reencodearComoJpeg` y las actions, programa el temporizador de 30 s y despacha los eventos que
-  devuelven; ante `sin-sesion` además hace `router.refresh()`. Solo importa del reductor, de
+  `reencodearComoJpeg` y las actions, programa el temporizador de 30 s **al despachar
+  `imagen-elegida`** (cubre el reencodeo y la action; se limpia al salir de `procesando`) y despacha
+  los eventos que devuelven; `procesarGuardado` corre en un efecto que reacciona a la transición a
+  `guardando` (Block 7), no en el handler del clic; ante `sin-sesion` además hace `router.refresh()`. Solo importa del reductor, de
   `procesar-imagen.ts`, de las pantallas, de `canvas-imagen.ts`, de `actions.ts` y de
   `domain/rules.ts`/`types.ts` (guardián, Block 9).
 - `page.tsx`: lee la cookie, `resolverUsuarioConsumo`; `sin-sesion` → `redirect(RUTA_LOGIN)`; `error` →
@@ -563,7 +588,8 @@ de `features/qa-access` (lo comprueba el guardián existente).
 - `error` de sesión en la página → mensaje genérico, sin detalles.
 - Sin sesión en la página → `redirect(RUTA_LOGIN)` (en producción termina en 404, D1).
 - Errores del flujo → `PantallaError` con el mensaje fijo (FR-15).
-- Desglose que no suma 100 o datos inválidos → aviso visible en `PantallaRevision`.
+- Desglose que no suma 100, datos inválidos o error al guardar → aviso visible en `PantallaRevision`,
+  con el borrador intacto.
 
 **Required tests**
 - [ ] `PantallaInicio` renderiza un input con `capture="environment"` y otro sin `capture`, ambos `accept="image/*"` (validates AC-01, AC-03).
@@ -571,7 +597,9 @@ de `features/qa-access` (lo comprueba el guardián existente).
 - [ ] `PantallaProcesando` renderiza el indicador con `role="status"` y el botón "Cancelar" (validates AC-09, AC-13).
 - [ ] `PantallaRevision` muestra la descripción, las calorías y los 4 porcentajes con sus etiquetas como campos editables (validates AC-06, AC-07, AC-08, AC-11).
 - [ ] `PantallaRevision` incluye la línea "puede ser inexacta" (validates AC-12).
-- [ ] `PantallaRevision` muestra el aviso cuando `aviso` está definido.
+- [ ] `PantallaRevision` muestra el texto de cada uno de los 3 avisos cuando `aviso` está definido.
+- [ ] `PantallaGuardando` muestra el indicador con `role="status"` y **no** tiene botón "Cancelar".
+- [ ] `PantallaGuardado` muestra "Consumo guardado" y el botón "Registrar otro".
 - [ ] Error handling: `PantallaError` muestra el mensaje fijo y los botones "Reintentar" y "Cancelar" (validates AC-15, AC-13).
 - [ ] Ninguna pantalla contiene `gemini`, `generativelanguage`, `apiKey` ni `inlineData` en el HTML (validates AC-10).
 - [ ] `page.test.tsx`: con sesión renderiza el contenedor `NuevoConsumo` (mock) (validates AC-14).
