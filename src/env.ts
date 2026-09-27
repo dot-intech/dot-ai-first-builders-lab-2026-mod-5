@@ -13,6 +13,7 @@ export type Env = {
   nodeEnv: string;
   databaseUrl: string;
   qaAccessEmail: string | undefined;
+  geminiApiKey: string | undefined;
 };
 
 function buildEnv(): Env {
@@ -34,10 +35,17 @@ function buildEnv(): Env {
   const qaAccessEmailRaw = process.env.QA_ACCESS_EMAIL?.trim();
   const qaAccessEmail = qaAccessEmailRaw ? qaAccessEmailRaw : undefined;
 
+  // GEMINI_API_KEY es opcional: sin ella la app arranca y solo falla el análisis de la foto.
+  // Nunca prefijar con NEXT_PUBLIC_ — la key tiene costo y debe permanecer server-side (M-8).
+  // Misma regla que QA_ACCESS_EMAIL: vacía o de solo espacios equivale a "no configurada".
+  const geminiApiKeyRaw = process.env.GEMINI_API_KEY?.trim();
+  const geminiApiKey = geminiApiKeyRaw ? geminiApiKeyRaw : undefined;
+
   return {
     nodeEnv,
     databaseUrl,
     qaAccessEmail,
+    geminiApiKey,
   };
 }
 

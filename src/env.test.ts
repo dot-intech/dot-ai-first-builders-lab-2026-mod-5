@@ -6,6 +6,7 @@ describe('env', () => {
     vi.unstubAllEnvs();
     vi.stubEnv('DATABASE_URL', '');
     vi.stubEnv('QA_ACCESS_EMAIL', '');
+    vi.stubEnv('GEMINI_API_KEY', '');
   });
 
   afterEach(() => {
@@ -102,5 +103,37 @@ describe('env', () => {
     const { env } = await import('./env');
 
     expect(env.nodeEnv).toBe('development');
+  });
+
+  it('debe devolver geminiApiKey sin espacios en los extremos', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('GEMINI_API_KEY', '  clave-de-prueba  ');
+
+    const { env } = await import('./env');
+
+    expect(env.geminiApiKey).toBe('clave-de-prueba');
+  });
+
+  it('debe devolver geminiApiKey como undefined sin lanzar si la variable no está seteada', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('GEMINI_API_KEY', undefined);
+
+    const { env } = await import('./env');
+
+    expect(env.geminiApiKey).toBeUndefined();
+    expect('geminiApiKey' in env).toBe(true);
+  });
+
+  it('debe devolver geminiApiKey como undefined si la variable es solo espacios', async () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('DATABASE_URL', 'postgresql://user:pass@localhost:5432/db');
+    vi.stubEnv('GEMINI_API_KEY', '   ');
+
+    const { env } = await import('./env');
+
+    expect(env.geminiApiKey).toBeUndefined();
+    expect('geminiApiKey' in env).toBe(true);
   });
 });
