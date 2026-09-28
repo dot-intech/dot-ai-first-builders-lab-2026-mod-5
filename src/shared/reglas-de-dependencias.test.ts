@@ -15,6 +15,8 @@ const RAIZ_REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 const SRC = 'src';
 const SHARED = 'src/shared';
 const FEATURES = 'src/features';
+const APP = 'src/app';
+const SHARED_DB = `${SHARED}/db`;
 const QA_ACCESS = 'src/features/qa-access';
 const MODULOS_DE_SESION_PROHIBIDOS_EN_QA_ACCESS = [
   `${QA_ACCESS}/domain/session-service.ts`,
@@ -66,7 +68,7 @@ const COMENTARIOS_Y_ESPACIOS_INICIALES = /^(?:\s+|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*/
 const DIRECTIVA_INICIAL = /^(['"])([^'"\n]*)\1\s*;?/;
 
 /** Recorre el prólogo de directivas (`'use strict'; 'use server'; …`) saltando comentarios. */
-function tieneDirectivaUseServer(contenido: string): boolean {
+function tieneDirectiva(contenido: string, nombre: string): boolean {
   let resto = contenido;
   for (;;) {
     resto = resto.replace(COMENTARIOS_Y_ESPACIOS_INICIALES, '');
@@ -74,7 +76,7 @@ function tieneDirectivaUseServer(contenido: string): boolean {
     if (directiva === null) {
       return false;
     }
-    if (directiva[2] === 'use server') {
+    if (directiva[2] === nombre) {
       return true;
     }
     resto = resto.slice(directiva[0].length);
@@ -92,6 +94,18 @@ function featureDe(ruta: string): string | null {
   }
   const nombre = ruta.slice(FEATURES.length + 1).split('/')[0];
   return nombre === undefined || nombre === '' ? null : nombre;
+}
+
+/** `true` si `ruta` cae bajo el `ui/` de alguna feature (no exige que sea una feature en particular). */
+function esUiDeFeature(ruta: string): boolean {
+  const feature = featureDe(ruta);
+  return feature !== null && estaDentroDe(ruta, `${FEATURES}/${feature}/ui`);
+}
+
+/** `true` si `ruta` cae bajo el `data/` de alguna feature (no exige que sea una feature en particular). */
+function esDataDeFeature(ruta: string): boolean {
+  const feature = featureDe(ruta);
+  return feature !== null && estaDentroDe(ruta, `${FEATURES}/${feature}/data`);
 }
 
 function importsQueIncumplen(
@@ -127,7 +141,8 @@ function violacionesFeatureImportaOtraFeature(archivos: ArchivoFuente[]): string
 function violacionesUseServerEnShared(archivos: ArchivoFuente[]): string[] {
   return archivos
     .filter(
-      ({ ruta, contenido }) => estaDentroDe(ruta, SHARED) && tieneDirectivaUseServer(contenido),
+      ({ ruta, contenido }) =>
+        estaDentroDe(ruta, SHARED) && tieneDirectiva(contenido, 'use server'),
     )
     .map(({ ruta }) => `${ruta} → 'use server'`);
 }
@@ -136,6 +151,55 @@ function modulosDeSesionEnQaAccess(rutasExistentes: string[]): string[] {
   return MODULOS_DE_SESION_PROHIBIDOS_EN_QA_ACCESS.filter((prohibida) =>
     rutasExistentes.includes(prohibida),
   );
+}
+
+const ARCHIVO_DE_INTEGRACION = /\.integration\.test\.tsx?$/;
+
+/**
+ * Regla 1 (ADR-007, D4): la UI de una feature o `src/app` no importa `data/` ni `shared/db`.
+ * Los `*.integration.test.ts(x)` quedan afuera: un test de integración de `ui/` puede necesitar
+ * tocar la BD real para armar su fixture (p. ej. `qa-access/ui/actions.integration.test.ts`), y
+ * esa es la excepción ya aceptada del proyecto, no una fuga de capas. Los tests unitarios de `ui/`
+ * siguen vigilados: solo se exceptúa el patrón exacto que necesita la BD real.
+ */
+function violacionesUiAppImportanDataODb(archivos: ArchivoFuente[]): string[] {
+  return importsQueIncumplen(
+    archivos,
+    (rutaArchivo, rutaResuelta) =>
+      !ARCHIVO_DE_INTEGRACION.test(rutaArchivo) &&
+      (esUiDeFeature(rutaArchivo) || estaDentroDe(rutaArchivo, APP)) &&
+      (esDataDeFeature(rutaResuelta) || estaDentroDe(rutaResuelta, SHARED_DB)),
+  );
+}
+
+const CARPETA_DATA = /(^|\/)data\//;
+const ARCHIVO_SERVICE = /-service(\.ts)?$/;
+const ESPECIFICADOR_EXTERNO_PROHIBIDO_EN_USE_CLIENT = '@google/genai';
+
+/** Rutas que un `'use client'` no puede importar (regla 2, ADR-007, D4, M-9), ya resueltas. */
+function importaModuloProhibidoParaUseClient(rutaResuelta: string): boolean {
+  return (
+    CARPETA_DATA.test(rutaResuelta) ||
+    ARCHIVO_SERVICE.test(rutaResuelta) ||
+    rutaResuelta === 'src/env' ||
+    rutaResuelta === 'src/env.ts'
+  );
+}
+
+function violacionesUseClientImportaProhibido(archivos: ArchivoFuente[]): string[] {
+  return archivos
+    .filter(({ contenido }) => tieneDirectiva(contenido, 'use client'))
+    .flatMap(({ ruta, contenido }) =>
+      extraerEspecificadores(contenido)
+        .filter((especificador) => {
+          if (especificador === ESPECIFICADOR_EXTERNO_PROHIBIDO_EN_USE_CLIENT) {
+            return true;
+          }
+          const resuelta = resolverEspecificador(ruta, especificador);
+          return resuelta !== null && importaModuloProhibidoParaUseClient(resuelta);
+        })
+        .map((especificador) => `${ruta} → '${especificador}'`),
+    );
 }
 
 // --- Lectura del disco (el test de tsconfig también lee un archivo, dentro de su `it`) ---
@@ -317,33 +381,47 @@ describe('resolverEspecificador', () => {
   });
 });
 
-describe('tieneDirectivaUseServer', () => {
+describe('tieneDirectiva', () => {
   it("debe detectar `'use server'` como primera sentencia", () => {
-    expect(tieneDirectivaUseServer(`'use server';\n\nexport async function f() {}\n`)).toBe(true);
+    expect(tieneDirectiva(`'use server';\n\nexport async function f() {}\n`, 'use server')).toBe(
+      true,
+    );
   });
 
   it('debe detectar `"use server"` sin punto y coma, después de comentarios y líneas vacías', () => {
     const contenido = `// comentario\n/* bloque\n   de comentario */\n\n"use server"\nexport const x = 1;\n`;
 
-    expect(tieneDirectivaUseServer(contenido)).toBe(true);
+    expect(tieneDirectiva(contenido, 'use server')).toBe(true);
   });
 
   it('debe detectar `use server` aunque otra directiva vaya antes en el prólogo', () => {
-    expect(tieneDirectivaUseServer(`'use strict';\n'use server';\nexport const x = 1;\n`)).toBe(
-      true,
-    );
+    expect(
+      tieneDirectiva(`'use strict';\n'use server';\nexport const x = 1;\n`, 'use server'),
+    ).toBe(true);
   });
 
   it('no debe marcar una mención dentro de un JSDoc', () => {
     const contenido = `/**\n * Este archivo nunca debe llevar 'use server'.\n */\nexport const x = 1;\n`;
 
-    expect(tieneDirectivaUseServer(contenido)).toBe(false);
+    expect(tieneDirectiva(contenido, 'use server')).toBe(false);
   });
 
   it('no debe marcar `use server` si no es la primera sentencia', () => {
     const contenido = `import { a } from './a';\n'use server';\nexport const x = a;\n`;
 
-    expect(tieneDirectivaUseServer(contenido)).toBe(false);
+    expect(tieneDirectiva(contenido, 'use server')).toBe(false);
+  });
+
+  it("debe detectar `'use client'` con comentarios previos y comillas dobles", () => {
+    const contenido = `// comentario\n/* bloque\n   de comentario */\n\n"use client"\nexport default function F() {}\n`;
+
+    expect(tieneDirectiva(contenido, 'use client')).toBe(true);
+  });
+
+  it("no debe marcar `'use client'` dentro de un string que aparece después del prólogo", () => {
+    const contenido = `import { a } from './a';\nconst s = 'use client';\nexport const x = a;\n`;
+
+    expect(tieneDirectiva(contenido, 'use client')).toBe(false);
   });
 });
 
@@ -417,6 +495,58 @@ describe('violaciones simuladas', () => {
       `${QA_ACCESS}/data`,
     ]);
   });
+
+  it('regla 1: reporta la ui de una feature o `src/app` que importan de data o de shared/db', () => {
+    const archivos: ArchivoFuente[] = [
+      {
+        ruta: 'src/features/consumos/ui/falso.tsx',
+        contenido: `import { x } from '../data/x';\n`,
+      },
+      {
+        ruta: 'src/app/consumos/nuevo/page.tsx',
+        contenido: `import { y } from '${ALIAS}shared/db/client';\n`,
+      },
+      {
+        ruta: 'src/features/consumos/ui/sano.tsx',
+        contenido: `import { z } from '${ALIAS}shared/sesion/ui/cookie-sesion';\n`,
+      },
+    ];
+
+    expect(violacionesUiAppImportanDataODb(archivos)).toEqual([
+      `src/features/consumos/ui/falso.tsx → '../data/x'`,
+      `src/app/consumos/nuevo/page.tsx → '${ALIAS}shared/db/client'`,
+    ]);
+  });
+
+  it("regla 2: reporta lo que un archivo con `'use client'` no puede importar", () => {
+    const archivos: ArchivoFuente[] = [
+      {
+        ruta: 'src/features/consumos/ui/flujo-nuevo-consumo.tsx',
+        contenido: [
+          `'use client';`,
+          `import { GoogleGenAI } from '@google/genai';`,
+          `import { env } from '../../../env';`,
+          `import { analizar } from '../domain/consumo-service';`,
+          `import { repo } from '../data/x';`,
+        ].join('\n'),
+      },
+      {
+        ruta: 'src/features/consumos/ui/sano.tsx',
+        contenido: [
+          `'use client';`,
+          `import { A } from './flujo-nuevo-consumo';`,
+          `import { rules } from '../domain/rules';`,
+        ].join('\n'),
+      },
+    ];
+
+    expect(violacionesUseClientImportaProhibido(archivos)).toEqual([
+      `src/features/consumos/ui/flujo-nuevo-consumo.tsx → '@google/genai'`,
+      `src/features/consumos/ui/flujo-nuevo-consumo.tsx → '../../../env'`,
+      `src/features/consumos/ui/flujo-nuevo-consumo.tsx → '../domain/consumo-service'`,
+      `src/features/consumos/ui/flujo-nuevo-consumo.tsx → '../data/x'`,
+    ]);
+  });
 });
 
 describe('reglas de dependencias sobre el código real (ADR-007)', () => {
@@ -448,5 +578,13 @@ describe('reglas de dependencias sobre el código real (ADR-007)', () => {
 
   it('regla 4: src/features/qa-access/ no debe contener módulos de sesión', () => {
     expect(modulosDeSesionEnQaAccess(rutasDeSrc)).toEqual([]);
+  });
+
+  it('regla 5: ningún archivo de ui de una feature ni de src/app debe importar de data ni de shared/db', () => {
+    expect(violacionesUiAppImportanDataODb(archivosDeSrc)).toEqual([]);
+  });
+
+  it("regla 6: ningún archivo con `'use client'` debe importar de data/, *-service, src/env ni @google/genai", () => {
+    expect(violacionesUseClientImportaProhibido(archivosDeSrc)).toEqual([]);
   });
 });
