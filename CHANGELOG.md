@@ -7,6 +7,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- [FEAT-001b] Registrar un consumo a partir de una foto (cámara o galería): análisis con el modelo de
+  visión de Gemini (`gemini-3.1-flash-lite`, `@google/genai`) que estima descripción, calorías y
+  desglose nutricional (carbohidratos/proteínas/grasas/otros, normalizado a que sume 100). El usuario
+  revisa y edita el resultado antes de guardar; `/consumos/nuevo` (server component con redirect a
+  `/dev-login` sin sesión), tabla `consumos` con sus CHECKs, y 2 reglas nuevas del guardián de
+  dependencias (la UI no importa `data`/`shared/db`; código `'use client'` no importa el SDK, `env.ts`
+  ni servicios de servidor).
 - [FEAT-001a] Acceso directo de QA sin magic link: server action `qaBackdoorLogin` que crea/reutiliza
   un usuario por email configurado (`QA_ACCESS_EMAIL`) y abre una sesión con cookie `httpOnly`,
   restringida a entornos no productivos (allowlist explícita). Sesión con ventana deslizante de 24h

@@ -1,0 +1,23 @@
+/* Mobile-first (NFR-03, ADR-008): una columna fluida, centrada, con controles de alto táctil
+   mínimo de 44 px. Clases explícitas (ronda 2 del Block 8, A-F1): `pantallas-nuevo-consumo.tsx`
+   importa este mismo módulo y aplica `.campo`/`.boton` a sus inputs y botones; ningún selector por
+   etiqueta que pueda alcanzar controles ajenos a este flujo. */
+
+.contenedor {
+  width: 100%;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 1rem;
+  box-sizing: border-box;
+  font-size: 1rem;
+}
+
+.campo {
+  min-height: 44px;
+  font-size: 1rem;
+}
+
+.boton {
+  min-height: 44px;
+  font-size: 1rem;
+}

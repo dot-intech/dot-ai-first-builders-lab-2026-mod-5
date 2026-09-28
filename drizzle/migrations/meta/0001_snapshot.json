@@ -1,0 +1,282 @@
+{
+  "id": "dcf7bad1-00b2-42ca-8479-fcd68e8d9941",
+  "prevId": "76b22800-53ec-4838-bcc6-0077fb1415ff",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.consumos": {
+      "name": "consumos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "descripcion": {
+          "name": "descripcion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "calorias": {
+          "name": "calorias",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pct_carbohidratos": {
+          "name": "pct_carbohidratos",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pct_proteinas": {
+          "name": "pct_proteinas",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pct_grasas": {
+          "name": "pct_grasas",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pct_otros": {
+          "name": "pct_otros",
+          "type": "smallint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origen": {
+          "name": "origen",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "consumos_usuario_id_idx": {
+          "name": "consumos_usuario_id_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "consumos_usuario_id_usuarios_id_fk": {
+          "name": "consumos_usuario_id_usuarios_id_fk",
+          "tableFrom": "consumos",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "consumos_descripcion_check": {
+          "name": "consumos_descripcion_check",
+          "value": "char_length(\"consumos\".\"descripcion\") BETWEEN 1 AND 500"
+        },
+        "consumos_calorias_check": {
+          "name": "consumos_calorias_check",
+          "value": "\"consumos\".\"calorias\" BETWEEN 0 AND 10000"
+        },
+        "consumos_pct_carbohidratos_check": {
+          "name": "consumos_pct_carbohidratos_check",
+          "value": "\"consumos\".\"pct_carbohidratos\" BETWEEN 0 AND 100"
+        },
+        "consumos_pct_proteinas_check": {
+          "name": "consumos_pct_proteinas_check",
+          "value": "\"consumos\".\"pct_proteinas\" BETWEEN 0 AND 100"
+        },
+        "consumos_pct_grasas_check": {
+          "name": "consumos_pct_grasas_check",
+          "value": "\"consumos\".\"pct_grasas\" BETWEEN 0 AND 100"
+        },
+        "consumos_pct_otros_check": {
+          "name": "consumos_pct_otros_check",
+          "value": "\"consumos\".\"pct_otros\" BETWEEN 0 AND 100"
+        },
+        "consumos_origen_check": {
+          "name": "consumos_origen_check",
+          "value": "\"consumos\".\"origen\" IN ('camara', 'galeria')"
+        },
+        "consumos_desglose_suma_check": {
+          "name": "consumos_desglose_suma_check",
+          "value": "\"consumos\".\"pct_carbohidratos\" + \"consumos\".\"pct_proteinas\" + \"consumos\".\"pct_grasas\" + \"consumos\".\"pct_otros\" = 100"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.sesiones": {
+      "name": "sesiones",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "usuario_id": {
+          "name": "usuario_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_activity_at": {
+          "name": "last_activity_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "sesiones_usuario_id_idx": {
+          "name": "sesiones_usuario_id_idx",
+          "columns": [
+            {
+              "expression": "usuario_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "sesiones_usuario_id_usuarios_id_fk": {
+          "name": "sesiones_usuario_id_usuarios_id_fk",
+          "tableFrom": "sesiones",
+          "tableTo": "usuarios",
+          "columnsFrom": [
+            "usuario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "sesiones_token_hash_unique": {
+          "name": "sesiones_token_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.usuarios": {
+      "name": "usuarios",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "usuarios_email_unique": {
+          "name": "usuarios_email_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "email"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

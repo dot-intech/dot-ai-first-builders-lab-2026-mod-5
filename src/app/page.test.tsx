@@ -10,4 +10,8 @@ describe('app/page (home)', () => {
   it('debe enlazar a /dev-login', () => {
     expect(renderToStaticMarkup(<Home />)).toContain('href="/dev-login"');
   });
+
+  it('debe enlazar a /consumos/nuevo para registrar un consumo', () => {
+    expect(renderToStaticMarkup(<Home />)).toContain('href="/consumos/nuevo"');
+  });
 });

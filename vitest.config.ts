@@ -17,6 +17,12 @@ export default defineConfig({
         'src/features/**/domain/types.ts',
         // Solo declara tipos: no tiene código ejecutable que medir.
         'src/shared/**/domain/types.ts',
+        // Contenedor cliente: solo cablea eventos del navegador, timers y actions al reductor (ADR-008).
+        'src/features/consumos/ui/nuevo-consumo.tsx',
+        // API de canvas, que no existe en `node`; la lógica pura está en `reducir-imagen.ts` (ADR-008).
+        'src/features/consumos/ui/canvas-imagen.ts',
+        // Solo declara tipos de los CSS Modules: no tiene código ejecutable que medir (ADR-008).
+        'src/css-modules.d.ts',
       ],
       thresholds: {
         lines: 80,

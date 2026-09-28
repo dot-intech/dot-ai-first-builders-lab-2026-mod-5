@@ -68,3 +68,9 @@ Matriz de dependencias:
   `vitest.config.ts`.
 - **Documentación:** se agregan notas "ver ADR-007" en la ADR-002, 004 y 005, en
   `spec-FEAT-001a.md` y en `threat-FEAT-001a.md`.
+
+> **Nota 2026-09-25 (FEAT-001b).** Por decisión del usuario, el guardián suma dos reglas: `features/*/ui` y `src/app`
+> no importan `*/data` ni `shared/db`; un archivo `'use client'` no importa `data/`, el service,
+> `src/env` ni `@google/genai`. También se aclara la matriz dentro de una misma feature:
+> `features/*/domain` puede importar la `data` de su propia feature solo desde el service, igual que
+> `shared/sesion/domain/session-service.ts`. Ver `threat-FEAT-001b.md`, ADR-008 y ADR-009.

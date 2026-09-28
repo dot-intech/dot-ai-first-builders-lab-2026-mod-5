@@ -7,6 +7,9 @@ export default function Home() {
       <p>
         <Link href="/dev-login">Acceso de QA</Link>
       </p>
+      <p>
+        <Link href="/consumos/nuevo">Registrar consumo</Link>
+      </p>
     </main>
   );
 }
