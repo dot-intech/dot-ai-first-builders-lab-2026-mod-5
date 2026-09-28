@@ -518,6 +518,27 @@ describe('violaciones simuladas', () => {
     ]);
   });
 
+  // W-1 (VERIFY, loop correctivo): la excepción está acotada a `*.integration.test.ts(x)` (fixtures
+  // contra la BD real, como `qa-access/ui/actions.integration.test.ts`); un `*.test.ts` unitario que
+  // haga lo mismo debe seguir reportándose. Sin este test, ampliar el patrón de la excepción no
+  // hacía fallar nada.
+  it('regla 1: la excepción de test solo cubre *.integration.test.ts(x), no cualquier *.test.ts(x)', () => {
+    const archivos: ArchivoFuente[] = [
+      {
+        ruta: 'src/features/consumos/ui/actions.integration.test.ts',
+        contenido: `import { schema } from '${ALIAS}shared/db/schema';\n`,
+      },
+      {
+        ruta: 'src/features/consumos/ui/actions.test.ts',
+        contenido: `import { schema } from '${ALIAS}shared/db/schema';\n`,
+      },
+    ];
+
+    expect(violacionesUiAppImportanDataODb(archivos)).toEqual([
+      `src/features/consumos/ui/actions.test.ts → '${ALIAS}shared/db/schema'`,
+    ]);
+  });
+
   it("regla 2: reporta lo que un archivo con `'use client'` no puede importar", () => {
     const archivos: ArchivoFuente[] = [
       {

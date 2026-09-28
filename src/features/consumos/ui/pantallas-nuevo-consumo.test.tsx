@@ -1,6 +1,7 @@
+import type { ChangeEvent, ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
-import type { Borrador } from './flujo-nuevo-consumo';
+import type { Borrador, CampoBorrador } from './flujo-nuevo-consumo';
 import {
   PantallaError,
   PantallaGuardado,
@@ -19,6 +20,36 @@ const BORRADOR: Borrador = {
   otros: '5',
 };
 
+/**
+ * `renderToStaticMarkup` (ADR-008) da HTML, no los `props` de cada elemento: para probar que un
+ * `onChange` despacha lo que corresponde hay que recorrer el árbol de `ReactElement` que devuelve
+ * el propio componente (llamado como función, sin JSX) y quedarse con los `<input>`.
+ */
+type InputConOnChange = ReactElement<{
+  onChange: (evento: ChangeEvent<HTMLInputElement>) => void;
+}>;
+
+function inputsDe(nodo: ReactNode): InputConOnChange[] {
+  if (nodo === null || nodo === undefined || typeof nodo !== 'object' || !('props' in nodo)) {
+    return [];
+  }
+  const elemento = nodo as ReactElement<{ children?: ReactNode }>;
+  const propios = elemento.type === 'input' ? [elemento as InputConOnChange] : [];
+  const hijos = elemento.props.children;
+  const deHijos = (Array.isArray(hijos) ? hijos : [hijos]).flatMap((hijo: ReactNode) =>
+    inputsDe(hijo),
+  );
+  return [...propios, ...deHijos];
+}
+
+function eventoConArchivos(archivos: File[]): ChangeEvent<HTMLInputElement> {
+  return { target: { files: archivos } } as unknown as ChangeEvent<HTMLInputElement>;
+}
+
+function eventoConValor(valor: string): ChangeEvent<HTMLInputElement> {
+  return { target: { value: valor } } as unknown as ChangeEvent<HTMLInputElement>;
+}
+
 describe('pantallas-nuevo-consumo', () => {
   describe('PantallaInicio', () => {
     it('renderiza un input con capture="environment" y otro sin capture, ambos accept="image/*"', () => {
@@ -35,6 +66,33 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(<PantallaInicio onSeleccionarImagen={vi.fn()} />);
 
       expect(html).toMatch(/<a[^>]*href="\/"[^>]*>Cancelar<\/a>/);
+    });
+
+    // H-1 (VERIFY, loop correctivo): `renderToStaticMarkup` no ejecuta eventos, así que nada
+    // probaba que el input de cámara despache 'camara' y el de galería 'galeria'. Si se
+    // invirtieran, un consumo fotografiado con la cámara quedaría guardado como 'galeria' sin que
+    // ningún test lo note.
+    it("el input con capture despacha 'camara' y el otro despacha 'galeria'", () => {
+      const espia = vi.fn();
+      const inputs = inputsDe(PantallaInicio({ onSeleccionarImagen: espia }));
+      expect(inputs).toHaveLength(2);
+
+      const archivoCamara = {} as File;
+      inputs[0]?.props.onChange(eventoConArchivos([archivoCamara]));
+      expect(espia).toHaveBeenCalledWith(archivoCamara, 'camara');
+
+      const archivoGaleria = {} as File;
+      inputs[1]?.props.onChange(eventoConArchivos([archivoGaleria]));
+      expect(espia).toHaveBeenCalledWith(archivoGaleria, 'galeria');
+    });
+
+    it('no llama a onSeleccionarImagen si se cancela la selección (sin archivo)', () => {
+      const espia = vi.fn();
+      const inputs = inputsDe(PantallaInicio({ onSeleccionarImagen: espia }));
+
+      inputs[0]?.props.onChange(eventoConArchivos([]));
+
+      expect(espia).not.toHaveBeenCalled();
     });
 
     // W-3 (ronda 3 del Block 8): el link quedó afuera al pasar de selectores por etiqueta a clases
@@ -166,6 +224,36 @@ describe('pantallas-nuevo-consumo', () => {
 
       expect(html).toContain('Guardar');
       expect(html).toContain('Cancelar');
+    });
+
+    // H-1 (VERIFY, loop correctivo): igual que en PantallaInicio, nada probaba que cada input
+    // edite su propio campo del borrador. Si dos campos se cruzaran (p. ej. "Proteínas" editando
+    // "grasas"), ningún test lo detectaría.
+    it('cada input llama a onCampoEditado con su propio campo (AC-11)', () => {
+      const espia = vi.fn();
+      const inputs = inputsDe(
+        PantallaRevision({
+          borrador: BORRADOR,
+          onCampoEditado: espia,
+          onGuardar: vi.fn(),
+          onCancelar: vi.fn(),
+        }),
+      );
+      const camposEnOrden: CampoBorrador[] = [
+        'descripcion',
+        'calorias',
+        'carbohidratos',
+        'proteinas',
+        'grasas',
+        'otros',
+      ];
+      expect(inputs).toHaveLength(camposEnOrden.length);
+
+      camposEnOrden.forEach((campo, indice) => {
+        espia.mockClear();
+        inputs[indice]?.props.onChange(eventoConValor('42'));
+        expect(espia).toHaveBeenCalledWith(campo, '42');
+      });
     });
   });
 
