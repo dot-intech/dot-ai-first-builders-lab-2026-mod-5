@@ -8,6 +8,8 @@ import { analizarImagen, guardarConsumo } from './consumo-service';
 import { AnalisisImagenError, DatosConsumoInvalidosError } from './errors';
 import type { Consumo, OrigenImagen } from './types';
 
+const SOLICITUD_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
+
 // Factories explícitas: el automock importaría los módulos reales para descubrir sus exports, y eso
 // cargaría `@google/genai`, `env.ts` y el cliente de la BD. Nunca se llama a la API real ni a la BD.
 vi.mock('../data/modelo-vision', () => ({
@@ -35,6 +37,7 @@ function datosValidos(origen: OrigenImagen = 'camara'): Record<string, unknown> 
     calorias: 420,
     desglose: { carbohidratos: 20, proteinas: 35, grasas: 40, otros: 5 },
     origen,
+    solicitudId: SOLICITUD_ID,
   };
 }
 
@@ -46,6 +49,7 @@ function consumoGuardado(parcial: Partial<Consumo> = {}): Consumo {
     calorias: 420,
     desglose: { carbohidratos: 20, proteinas: 35, grasas: 40, otros: 5 },
     origen: 'camara',
+    solicitudId: SOLICITUD_ID,
     createdAt: new Date('2026-09-27T12:00:00.000Z'),
     ...parcial,
   };
@@ -177,12 +181,13 @@ describe('consumo-service/guardarConsumo', () => {
       calorias: 420,
       desglose: { carbohidratos: 20, proteinas: 35, grasas: 40, otros: 5 },
       origen: 'camara',
+      solicitudId: SOLICITUD_ID,
       usuarioId: 'u-1',
     });
     expect(resultado).toBe(guardado);
   });
 
-  it.each<OrigenImagen>(['camara', 'galeria'])(
+  it.each<OrigenImagen>(['camara', 'galeria', 'manual'])(
     'debe persistir el origen %s tal como llega',
     async (origen) => {
       vi.mocked(consumoRepository.crearConsumo).mockResolvedValue(consumoGuardado({ origen }));
@@ -206,6 +211,17 @@ describe('consumo-service/guardarConsumo', () => {
 
     expect(error).toBeInstanceOf(DatosConsumoInvalidosError);
     expect((error as DatosConsumoInvalidosError).campo).toBe('desglose');
+    expect(consumoRepository.crearConsumo).not.toHaveBeenCalled();
+  });
+
+  it('debe rechazar una entrada sin solicitudId con campo solicitudId sin llamar al repository', async () => {
+    const sinSolicitudId: Record<string, unknown> = { ...datosValidos() };
+    delete sinSolicitudId.solicitudId;
+
+    const error = await guardarConsumo('u-1', sinSolicitudId).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(DatosConsumoInvalidosError);
+    expect((error as DatosConsumoInvalidosError).campo).toBe('solicitudId');
     expect(consumoRepository.crearConsumo).not.toHaveBeenCalled();
   });
 

@@ -56,6 +56,7 @@ function nuevoConsumo(usuarioId: string): NuevoConsumo {
     calorias: 520,
     desglose: { carbohidratos: 35, proteinas: 25, grasas: 30, otros: 10 },
     origen: 'galeria',
+    solicitudId: randomUUID(),
   };
 }
 
@@ -104,6 +105,7 @@ describe('consumo-repository/crearConsumo', () => {
       'desglose',
       'id',
       'origen',
+      'solicitudId',
       'usuarioId',
     ]);
   });
@@ -135,6 +137,64 @@ describe('consumo-repository/crearConsumo', () => {
     const segundo = await crearConsumo(nuevoConsumo(usuarioId));
 
     expect(segundo.id).not.toBe(primero.id);
+  });
+
+  it('debe persistir solicitud_id y aceptar el origen manual', async () => {
+    const usuarioId = await crearUsuarioDeTest();
+    const nuevo: NuevoConsumo = { ...nuevoConsumo(usuarioId), origen: 'manual' };
+
+    const consumo = await crearConsumo(nuevo);
+
+    expect(consumo.origen).toBe('manual');
+    expect(consumo.solicitudId).toBe(nuevo.solicitudId);
+    const [fila] = await dbDeTest.select().from(consumos).where(eq(consumos.id, consumo.id));
+    expect(fila?.solicitudId).toBe(nuevo.solicitudId);
+  });
+
+  it('debe dejar una sola fila al guardar dos veces el mismo (usuarioId, solicitudId) y gana el segundo', async () => {
+    const usuarioId = await crearUsuarioDeTest();
+    const primero = nuevoConsumo(usuarioId);
+    const original = await crearConsumo(primero);
+
+    const editado = await crearConsumo({
+      ...primero,
+      descripcion: 'Ensalada César sin jugo',
+      calorias: 300,
+      desglose: { carbohidratos: 20, proteinas: 30, grasas: 40, otros: 10 },
+      origen: 'manual',
+    });
+
+    const filas = await dbDeTest.select().from(consumos).where(eq(consumos.usuarioId, usuarioId));
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({
+      descripcion: 'Ensalada César sin jugo',
+      calorias: 300,
+      pctCarbohidratos: 20,
+      pctProteinas: 30,
+      pctGrasas: 40,
+      pctOtros: 10,
+      origen: 'manual',
+      solicitudId: primero.solicitudId,
+    });
+    expect(editado.id).toBe(original.id);
+    expect(editado.createdAt.getTime()).toBe(original.createdAt.getTime());
+    expect(editado.descripcion).toBe('Ensalada César sin jugo');
+  });
+
+  it('debe crear dos filas si dos usuarios distintos usan el mismo solicitudId', async () => {
+    const usuarioA = await crearUsuarioDeTest();
+    const usuarioB = await crearUsuarioDeTest();
+    const solicitudId = randomUUID();
+
+    const a = await crearConsumo({ ...nuevoConsumo(usuarioA), solicitudId });
+    const b = await crearConsumo({ ...nuevoConsumo(usuarioB), solicitudId });
+
+    expect(b.id).not.toBe(a.id);
+    const filas = await dbDeTest
+      .select()
+      .from(consumos)
+      .where(inArray(consumos.usuarioId, [usuarioA, usuarioB]));
+    expect(filas).toHaveLength(2);
   });
 
   it('debe lanzar RepositoryError consumos.crear con mensaje fijo si el usuario no existe', async () => {

@@ -58,7 +58,11 @@ describe('actions (consumos)', () => {
 
   describe('guardarNuevoConsumo', () => {
     it('debe leer la cookie nutrashot_session y delegar en guardar con el token', async () => {
-      const datos = { descripcion: 'Té', calorias: 0 };
+      const datos = {
+        descripcion: 'Té',
+        calorias: 0,
+        solicitudId: '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b',
+      };
       vi.mocked(guardar).mockResolvedValue({ tipo: 'guardado' });
 
       const resultado = await guardarNuevoConsumo(datos);

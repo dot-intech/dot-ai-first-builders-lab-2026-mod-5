@@ -22,7 +22,7 @@ function restoRedondeado(escalado: number, entero: number): number {
   return Math.max(0, Math.round((escalado - entero) / TOLERANCIA_ESCALADO) * TOLERANCIA_ESCALADO);
 }
 
-const ORIGENES: readonly string[] = ['camara', 'galeria'] satisfies OrigenImagen[];
+const ORIGENES: readonly string[] = ['camara', 'galeria', 'manual'] satisfies OrigenImagen[];
 
 export function esJpeg(bytes: Uint8Array): boolean {
   return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -87,6 +87,16 @@ function esEnteroEnRango(valor: unknown, min: number, max: number): valor is num
   return typeof valor === 'number' && Number.isInteger(valor) && valor >= min && valor <= max;
 }
 
+const FORMA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Acepta solo un UUID (mayúsculas o minúsculas) y lo devuelve en minúsculas. */
+export function validarSolicitudId(valor: unknown): string {
+  if (typeof valor !== 'string' || !FORMA_UUID.test(valor)) {
+    throw new DatosConsumoInvalidosError('solicitudId');
+  }
+  return valor.toLowerCase();
+}
+
 function validarDescripcion(valor: unknown): string {
   if (typeof valor !== 'string') {
     throw new DatosConsumoInvalidosError('descripcion');
@@ -134,5 +144,12 @@ export function validarDatosConsumo(entrada: unknown): DatosConsumo {
   if (typeof origen !== 'string' || !ORIGENES.includes(origen)) {
     throw new DatosConsumoInvalidosError('origen');
   }
-  return { descripcion, calorias: entrada.calorias, desglose, origen: origen as OrigenImagen };
+  const solicitudId = validarSolicitudId(entrada.solicitudId);
+  return {
+    descripcion,
+    calorias: entrada.calorias,
+    desglose,
+    origen: origen as OrigenImagen,
+    solicitudId,
+  };
 }

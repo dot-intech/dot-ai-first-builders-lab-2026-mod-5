@@ -29,12 +29,15 @@ function jpegDe(largo: number): Uint8Array {
   return bytes;
 }
 
+const SOLICITUD_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
+
 function datosValidos() {
   return {
     descripcion: 'Milanesa con puré',
     calorias: 850,
     desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
     origen: 'camara',
+    solicitudId: SOLICITUD_ID,
   };
 }
 
@@ -232,6 +235,7 @@ describe('validarDatosConsumo', () => {
       calorias: 850,
       desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
       origen: 'camara',
+      solicitudId: SOLICITUD_ID,
     });
     expect(resultado).not.toBe(entrada);
     expect(resultado.desglose).not.toBe(entrada.desglose);
@@ -258,6 +262,40 @@ describe('validarDatosConsumo', () => {
     ).toEqual({ carbohidratos: 0, proteinas: 0, grasas: 0, otros: 100 });
   });
 
+  it("debe aceptar origen 'manual' y devolver el solicitudId en minúsculas", () => {
+    const resultado = validarDatosConsumo({
+      ...datosValidos(),
+      origen: 'manual',
+      solicitudId: SOLICITUD_ID.toUpperCase(),
+    });
+
+    expect(resultado.origen).toBe('manual');
+    expect(resultado.solicitudId).toBe(SOLICITUD_ID);
+  });
+
+  it.each([
+    ['ausente', undefined],
+    ['un número', 123],
+    ["un string vacío ''", ''],
+    ['un string que no es UUID', 'no-es-un-uuid'],
+    ['un UUID con un carácter no hexadecimal', '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6z'],
+    ['un UUID sin guiones', '3f2b8c1e5a4d4e6f9b7a1c2d3e4f5a6b'],
+    ['un UUID con espacios alrededor', ` ${SOLICITUD_ID} `],
+  ])("con solicitudId %s debe lanzar campo 'solicitudId'", (_nombre, solicitudId) => {
+    expect(campoDelError({ ...datosValidos(), solicitudId })).toBe('solicitudId');
+  });
+
+  it('debe descartar confianza y usuarioId de la entrada (M-3)', () => {
+    const resultado = validarDatosConsumo({
+      ...datosValidos(),
+      confianza: 42,
+      usuarioId: 'otro-usuario',
+    });
+
+    expect(resultado).not.toHaveProperty('confianza');
+    expect(resultado).not.toHaveProperty('usuarioId');
+  });
+
   it('debe descartar usuarioId y cualquier campo extra, también dentro del desglose', () => {
     const entrada = {
       ...datosValidos(),
@@ -274,6 +312,7 @@ describe('validarDatosConsumo', () => {
       'descripcion',
       'desglose',
       'origen',
+      'solicitudId',
     ]);
     expect(Object.keys(resultado.desglose).sort()).toEqual([
       'carbohidratos',
