@@ -18,7 +18,12 @@ export type CampoBorrador =
 /** Campos editables tal como los escribe el usuario; se convierten a números al guardar. */
 export type Borrador = Record<CampoBorrador, string>;
 
-export type AvisoRevision = 'desglose-no-suma-100' | 'datos-invalidos' | 'error-al-guardar';
+export type AvisoRevision =
+  | 'desglose-no-suma-100'
+  | 'datos-invalidos'
+  | 'error-al-guardar'
+  | 'confirmar-revision'
+  | 'guardado-sin-respuesta';
 
 export type EstadoFlujo =
   | { tipo: 'inicio' }

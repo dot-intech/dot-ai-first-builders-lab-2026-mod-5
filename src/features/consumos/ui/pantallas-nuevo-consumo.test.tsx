@@ -2,6 +2,8 @@ import type { ChangeEvent, ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { Borrador, CampoBorrador } from './flujo-nuevo-consumo';
+import { PantallaBajaConfianza } from './pantalla-baja-confianza';
+import { PantallaSesionVencida } from './pantalla-sesion-vencida';
 import {
   PantallaError,
   PantallaGuardado,
@@ -38,6 +40,22 @@ function inputsDe(nodo: ReactNode): InputConOnChange[] {
   const hijos = elemento.props.children;
   const deHijos = (Array.isArray(hijos) ? hijos : [hijos]).flatMap((hijo: ReactNode) =>
     inputsDe(hijo),
+  );
+  return [...propios, ...deHijos];
+}
+
+type BotonConOnClick = ReactElement<{ children?: ReactNode; onClick: () => void }>;
+
+/** Igual que `inputsDe`, pero para los `<button>`: permite invocar su `onClick` sin DOM. */
+function botonesDe(nodo: ReactNode): BotonConOnClick[] {
+  if (nodo === null || nodo === undefined || typeof nodo !== 'object' || !('props' in nodo)) {
+    return [];
+  }
+  const elemento = nodo as ReactElement<{ children?: ReactNode }>;
+  const propios = elemento.type === 'button' ? [elemento as BotonConOnClick] : [];
+  const hijos = elemento.props.children;
+  const deHijos = (Array.isArray(hijos) ? hijos : [hijos]).flatMap((hijo: ReactNode) =>
+    botonesDe(hijo),
   );
   return [...propios, ...deHijos];
 }
@@ -183,6 +201,8 @@ describe('pantallas-nuevo-consumo', () => {
       ['desglose-no-suma-100', 'Los porcentajes deben sumar 100.'],
       ['datos-invalidos', 'Revisá los datos: hay valores que no son válidos.'],
       ['error-al-guardar', 'No pudimos guardar. Probá de nuevo.'],
+      ['confirmar-revision', 'Confirmá que revisaste la descripción y las calorías.'],
+      ['guardado-sin-respuesta', 'No recibimos respuesta al guardar. Podés reintentar.'],
     ] as const)('muestra el texto del aviso %s', (aviso, texto) => {
       const html = renderToStaticMarkup(
         <PantallaRevision
@@ -194,7 +214,7 @@ describe('pantallas-nuevo-consumo', () => {
         />,
       );
 
-      expect(html).toContain(texto);
+      expect(html).toContain(`<p role="alert">${texto}</p>`);
     });
 
     it('no muestra ningún aviso cuando no está definido', () => {
@@ -284,6 +304,97 @@ describe('pantallas-nuevo-consumo', () => {
       expect(html).toContain('No pudimos analizar la imagen. Probá de nuevo.');
       expect(html).toContain('Reintentar');
       expect(html).toContain('Cancelar');
+    });
+  });
+
+  describe('PantallaBajaConfianza', () => {
+    it('muestra la advertencia y los tres botones (AC-02, AC-03)', () => {
+      const html = renderToStaticMarkup(
+        <PantallaBajaConfianza
+          onCargarOtraImagen={vi.fn()}
+          onRevisarDatos={vi.fn()}
+          onCancelar={vi.fn()}
+        />,
+      );
+
+      expect(html).toContain('La estimación de esta foto es poco confiable');
+      expect(html).toContain('Cargar otra imagen');
+      expect(html).toContain('Revisar datos');
+      expect(html).toContain('Cancelar');
+      expect(html.match(/<button/g)).toHaveLength(3);
+    });
+
+    it('cada botón llama a su callback (AC-03, AC-05)', () => {
+      const cargar = vi.fn();
+      const revisar = vi.fn();
+      const cancelar = vi.fn();
+      const botones = botonesDe(
+        PantallaBajaConfianza({
+          onCargarOtraImagen: cargar,
+          onRevisarDatos: revisar,
+          onCancelar: cancelar,
+        }),
+      );
+      expect(botones).toHaveLength(3);
+
+      botones[0]?.props.onClick();
+      expect([
+        cargar.mock.calls.length,
+        revisar.mock.calls.length,
+        cancelar.mock.calls.length,
+      ]).toEqual([1, 0, 0]);
+      botones[1]?.props.onClick();
+      expect([
+        cargar.mock.calls.length,
+        revisar.mock.calls.length,
+        cancelar.mock.calls.length,
+      ]).toEqual([1, 1, 0]);
+      botones[2]?.props.onClick();
+      expect([
+        cargar.mock.calls.length,
+        revisar.mock.calls.length,
+        cancelar.mock.calls.length,
+      ]).toEqual([1, 1, 1]);
+    });
+  });
+
+  describe('PantallaSesionVencida', () => {
+    it('muestra el mensaje y el botón "Iniciar sesión" (AC-08)', () => {
+      const html = renderToStaticMarkup(<PantallaSesionVencida onIniciarSesion={vi.fn()} />);
+
+      expect(html).toContain('Tu sesión venció.');
+      expect(html).toContain('Iniciar sesión');
+    });
+
+    it('el botón llama a onIniciarSesion (AC-08)', () => {
+      const espia = vi.fn();
+      const botones = botonesDe(PantallaSesionVencida({ onIniciarSesion: espia }));
+      expect(botones).toHaveLength(1);
+
+      botones[0]?.props.onClick();
+
+      expect(espia).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('pantallas nuevas sin texto técnico', () => {
+    it('no contienen endpoint, gemini, 500 ni stack', () => {
+      const html = [
+        renderToStaticMarkup(
+          <PantallaBajaConfianza
+            onCargarOtraImagen={vi.fn()}
+            onRevisarDatos={vi.fn()}
+            onCancelar={vi.fn()}
+          />,
+        ),
+        renderToStaticMarkup(<PantallaSesionVencida onIniciarSesion={vi.fn()} />),
+      ]
+        .join('\n')
+        .toLowerCase();
+
+      for (const prohibido of ['/api', 'endpoint', 'gemini', '500', 'stack']) {
+        expect(html).not.toContain(prohibido);
+      }
     });
   });
 

@@ -18,6 +18,8 @@ const TEXTO_AVISO: Record<AvisoRevision, string> = {
   'desglose-no-suma-100': 'Los porcentajes deben sumar 100.',
   'datos-invalidos': 'Revisá los datos: hay valores que no son válidos.',
   'error-al-guardar': 'No pudimos guardar. Probá de nuevo.',
+  'confirmar-revision': 'Confirmá que revisaste la descripción y las calorías.',
+  'guardado-sin-respuesta': 'No recibimos respuesta al guardar. Podés reintentar.',
 };
 
 export type PantallaInicioProps = {
