@@ -11,6 +11,7 @@ const ESTIMACION: EstimacionNutricional = {
   descripcion: 'Ensalada',
   calorias: 200,
   desglose: { carbohidratos: 20, proteinas: 10, grasas: 20, otros: 50 },
+  confianza: 85,
 };
 
 const BORRADOR: Borrador = {

@@ -6,6 +6,8 @@ export const DESCRIPCION_MAX = 500;
 export const CALORIAS_MAX = 10000;
 // El cliente reencodea a < ~900 KB; el margen cubre variaciones del encoder sin aceptar archivos crudos.
 export const IMAGEN_MAX_BYTES = 950_000;
+// Única frontera de la baja confianza (NFR-01): hasta este valor inclusive se pide revisar.
+export const UMBRAL_CONFIANZA = 70;
 
 // Orden fijo: define el desempate del reparto por mayor resto y el orden de lectura del desglose.
 const CLAVES_DESGLOSE = ['carbohidratos', 'proteinas', 'grasas', 'otros'] as const;
@@ -33,6 +35,18 @@ export function validarImagen(bytes: Uint8Array): void {
   if (bytes.length === 0 || bytes.length > IMAGEN_MAX_BYTES || !esJpeg(bytes)) {
     throw new AnalisisImagenError('imagen-invalida');
   }
+}
+
+export function esBajaConfianza(confianza: number): boolean {
+  return confianza <= UMBRAL_CONFIANZA;
+}
+
+/** Entero entre 0 y 100; un valor no finito cuenta como 0 (la confianza no informada es baja). */
+export function normalizarConfianza(valor: number): number {
+  if (!Number.isFinite(valor)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, Math.round(valor)));
 }
 
 export function sumaDesglose(d: DesgloseNutricional): number {

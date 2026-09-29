@@ -16,6 +16,7 @@ const ESTIMACION: EstimacionNutricional = {
   descripcion: 'Milanesa con puré',
   calorias: 850,
   desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
+  confianza: 85,
 };
 
 const BORRADOR: Borrador = {

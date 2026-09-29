@@ -5,7 +5,10 @@ import {
   CALORIAS_MAX,
   DESCRIPCION_MAX,
   IMAGEN_MAX_BYTES,
+  UMBRAL_CONFIANZA,
+  esBajaConfianza,
   esJpeg,
+  normalizarConfianza,
   normalizarDesglose,
   sumaDesglose,
   validarDatosConsumo,
@@ -374,4 +377,41 @@ describe('validarDatosConsumo', () => {
   ])("con origen %s debe lanzar campo 'origen'", (_nombre, origen) => {
     expect(campoDelError({ ...datosValidos(), origen })).toBe('origen');
   });
+});
+
+describe('esBajaConfianza', () => {
+  it('debe fijar el umbral en 70', () => {
+    expect(UMBRAL_CONFIANZA).toBe(70);
+  });
+
+  it.each([
+    [70, true],
+    [71, false],
+    [0, true],
+    [100, false],
+  ])('esBajaConfianza(%d) debe ser %s', (confianza, esperado) => {
+    expect(esBajaConfianza(confianza)).toBe(esperado);
+  });
+});
+
+describe('normalizarConfianza', () => {
+  it('debe redondear al entero más cercano', () => {
+    expect(normalizarConfianza(84.6)).toBe(85);
+  });
+
+  it('debe limitar al rango 0..100', () => {
+    expect(normalizarConfianza(101)).toBe(100);
+    expect(normalizarConfianza(-5)).toBe(0);
+  });
+
+  it('debe conservar un entero válido', () => {
+    expect(normalizarConfianza(70)).toBe(70);
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'debe devolver 0 si el valor no es finito (%s)',
+    (valor) => {
+      expect(normalizarConfianza(valor)).toBe(0);
+    },
+  );
 });

@@ -19,8 +19,11 @@ export type ContenidoNutricional = {
   desglose: DesgloseNutricional;
 };
 
-/** Lo que se muestra al usuario tras analizar la foto. */
-export type EstimacionNutricional = ContenidoNutricional;
+/**
+ * Lo que se muestra al usuario tras analizar la foto. `confianza` es un entero 0..100 autorreportado
+ * por el modelo; no se persiste ni forma parte de `DatosConsumo` (A3).
+ */
+export type EstimacionNutricional = ContenidoNutricional & { confianza: number };
 
 /** `solicitudId` identifica un mismo intento de registro: reintentar con él no duplica el consumo. */
 export type DatosConsumo = ContenidoNutricional & { origen: OrigenImagen; solicitudId: string };

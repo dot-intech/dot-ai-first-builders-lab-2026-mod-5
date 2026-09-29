@@ -27,6 +27,7 @@ function estimacionCruda(parcial: Partial<EstimacionCruda> = {}): EstimacionCrud
     descripcion: 'Milanesa con papas fritas y un vaso de agua',
     calorias: 850,
     desglose: { carbohidratos: 45, proteinas: 25, grasas: 30, otros: 0 },
+    confianza: 90,
     ...parcial,
   };
 }
@@ -85,8 +86,25 @@ describe('consumo-service/analizarImagen', () => {
       descripcion: 'Milanesa con papas fritas y un vaso de agua',
       calorias: 850,
       desglose: { carbohidratos: 34, proteinas: 33, grasas: 33, otros: 0 },
+      confianza: 90,
     });
     expect(Number.isInteger(estimacion.calorias)).toBe(true);
+  });
+
+  it.each([
+    [84.6, 85],
+    [101, 100],
+    [-5, 0],
+    [Number.NaN, 0],
+  ])('debe normalizar la confianza %s a el entero %s', async (cruda, esperada) => {
+    vi.mocked(modeloVision.analizarConModeloVision).mockResolvedValue(
+      estimacionCruda({ confianza: cruda }),
+    );
+
+    const estimacion = await analizarImagen(JPEG_MINIMO);
+
+    expect(estimacion.confianza).toBe(esperada);
+    expect(Number.isInteger(estimacion.confianza)).toBe(true);
   });
 
   it('debe rechazar bytes PNG con imagen-invalida sin llamar al adaptador', async () => {
@@ -137,6 +155,7 @@ describe('consumo-service/analizarImagen', () => {
       descripcion: 'Un vaso de agua',
       calorias: 0,
       desglose: { carbohidratos: 0, proteinas: 0, grasas: 0, otros: 100 },
+      confianza: 90,
     });
   });
 
@@ -164,6 +183,7 @@ describe('consumo-service/analizarImagen', () => {
       descripcion: 'Milanesa con papas fritas y un vaso de agua',
       calorias: 0,
       desglose: { carbohidratos: 0, proteinas: 0, grasas: 0, otros: 100 },
+      confianza: 90,
     });
   });
 });

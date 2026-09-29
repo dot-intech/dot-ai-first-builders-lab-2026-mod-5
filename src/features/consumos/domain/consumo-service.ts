@@ -1,7 +1,12 @@
 // Único archivo de `domain` que importa de `data/` (A6, nota de ADR-007): las reglas siguen puras.
 import { crearConsumo } from '../data/consumo-repository';
 import { analizarConModeloVision } from '../data/modelo-vision';
-import { normalizarDesglose, validarDatosConsumo, validarImagen } from './rules';
+import {
+  normalizarConfianza,
+  normalizarDesglose,
+  validarDatosConsumo,
+  validarImagen,
+} from './rules';
 import type { Consumo, EstimacionNutricional } from './types';
 
 /**
@@ -21,6 +26,7 @@ export async function analizarImagen(bytes: Uint8Array): Promise<EstimacionNutri
     descripcion: crudo.descripcion,
     calorias,
     desglose: normalizarDesglose(crudo.desglose, calorias),
+    confianza: normalizarConfianza(crudo.confianza),
   };
 }
 

@@ -40,9 +40,17 @@ const estimacion: EstimacionNutricional = {
   descripcion: 'Milanesa con papas fritas y una gaseosa',
   calorias: 850,
   desglose: { carbohidratos: 45, proteinas: 25, grasas: 28, otros: 2 },
+  confianza: 85,
 };
 const SOLICITUD_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
-const datos = { ...estimacion, origen: 'camara' as const, solicitudId: SOLICITUD_ID };
+// La confianza no se persiste (A3): no forma parte de los datos a guardar.
+const datos = {
+  descripcion: estimacion.descripcion,
+  calorias: estimacion.calorias,
+  desglose: estimacion.desglose,
+  origen: 'camara' as const,
+  solicitudId: SOLICITUD_ID,
+};
 const consumo: Consumo = {
   ...datos,
   usuarioId: USUARIO_ID,
