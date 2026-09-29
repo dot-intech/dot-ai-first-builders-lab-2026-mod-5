@@ -90,7 +90,8 @@ export async function procesarGuardado(
   { guardar }: DependenciasGuardado,
 ): Promise<EventoFlujo> {
   try {
-    return eventoDeGuardado(await guardar(datosDesdeBorrador(borrador, origen)), solicitudId);
+    const datos = datosDesdeBorrador(borrador, origen, solicitudId);
+    return eventoDeGuardado(await guardar(datos), solicitudId);
   } catch {
     // Igual que arriba: un rechazo (red) vuelve a la revisión con el
     // aviso "error al guardar", sin perder el borrador.

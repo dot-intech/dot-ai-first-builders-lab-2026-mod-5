@@ -181,11 +181,16 @@ export function reducirFlujo(estado: EstadoFlujo, evento: EventoFlujo): EstadoFl
  * Convierte el borrador a la forma que espera la action de guardado. Devuelve `unknown` a
  * propósito: no se valida aquí, la validación real la hace el servidor.
  */
-export function datosDesdeBorrador(borrador: Borrador, origen: OrigenImagen): unknown {
+export function datosDesdeBorrador(
+  borrador: Borrador,
+  origen: OrigenImagen,
+  solicitudId: string,
+): unknown {
   return {
     descripcion: borrador.descripcion,
     calorias: aNumero(borrador.calorias),
     desglose: desgloseDesdeBorrador(borrador),
     origen,
+    solicitudId,
   };
 }

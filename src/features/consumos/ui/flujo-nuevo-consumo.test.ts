@@ -441,17 +441,18 @@ describe('flujo-nuevo-consumo', () => {
   });
 
   describe('datosDesdeBorrador', () => {
-    it('debe convertir los strings a números y agregar el origen', () => {
-      expect(datosDesdeBorrador(BORRADOR, 'galeria')).toEqual({
+    it('debe convertir los strings a números e incluir el origen y el solicitudId', () => {
+      expect(datosDesdeBorrador(BORRADOR, 'galeria', ID)).toEqual({
         descripcion: 'Milanesa con puré',
         calorias: 850,
         desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
         origen: 'galeria',
+        solicitudId: ID,
       });
     });
 
     it('debe convertir un campo vacío en NaN para que el servidor lo rechace', () => {
-      const datos = datosDesdeBorrador({ ...BORRADOR, calorias: '  ' }, 'camara') as {
+      const datos = datosDesdeBorrador({ ...BORRADOR, calorias: '  ' }, 'camara', ID) as {
         calorias: number;
       };
 

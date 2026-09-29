@@ -138,7 +138,20 @@ describe('procesar-imagen', () => {
         calorias: 200,
         desglose: { carbohidratos: 20, proteinas: 10, grasas: 20, otros: 50 },
         origen: 'galeria',
+        solicitudId: ID,
       });
+    });
+
+    it('con dos llamadas con el mismo solicitudId debe enviar el mismo id', async () => {
+      const deps = dependenciasGuardado(() => Promise.resolve({ tipo: 'error' }));
+
+      await procesarGuardado(entrada, deps);
+      await procesarGuardado(entrada, deps);
+
+      const ids = deps.guardar.mock.calls.map(
+        ([datos]) => (datos as { solicitudId: string }).solicitudId,
+      );
+      expect(ids).toEqual([ID, ID]);
     });
 
     it.each<[string, () => Promise<ResultadoGuardado>, unknown]>([
