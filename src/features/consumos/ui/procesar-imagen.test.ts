@@ -117,6 +117,7 @@ describe('procesar-imagen', () => {
 
       await expect(procesarImagen({ archivo: ARCHIVO, solicitudId: ID }, deps)).resolves.toEqual({
         tipo: 'sin-sesion',
+        solicitudId: ID,
       });
     });
   });
@@ -166,7 +167,11 @@ describe('procesar-imagen', () => {
         () => Promise.resolve({ tipo: 'error' }),
         { tipo: 'guardado-fallo', solicitudId: ID, motivo: 'error' },
       ],
-      ['sin-sesion', () => Promise.resolve({ tipo: 'sin-sesion' }), { tipo: 'sin-sesion' }],
+      [
+        'sin-sesion',
+        () => Promise.resolve({ tipo: 'sin-sesion' }),
+        { tipo: 'sin-sesion', solicitudId: ID },
+      ],
       [
         'guardar que rechaza',
         () => Promise.reject(new Error('red')),

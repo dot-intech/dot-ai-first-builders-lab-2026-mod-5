@@ -1,4 +1,4 @@
-import { DESCRIPCION_MAX, sumaDesglose } from '../domain/rules';
+import { DESCRIPCION_MAX, esBajaConfianza, sumaDesglose } from '../domain/rules';
 import type { DesgloseNutricional, EstimacionNutricional, OrigenImagen } from '../domain/types';
 
 /*
@@ -25,22 +25,35 @@ export type AvisoRevision =
   | 'confirmar-revision'
   | 'guardado-sin-respuesta';
 
+/** Origen de una foto elegida: la carga manual no tiene imagen, así que no entra en la selección. */
+export type OrigenFoto = Exclude<OrigenImagen, 'manual'>;
+
 export type EstadoFlujo =
   | { tipo: 'inicio' }
-  | { tipo: 'procesando'; solicitudId: string; origen: OrigenImagen }
+  | { tipo: 'procesando'; solicitudId: string; origen: OrigenFoto }
+  | { tipo: 'baja-confianza'; solicitudId: string; origen: OrigenFoto; borrador: Borrador }
   | {
       tipo: 'revision';
       solicitudId: string;
       origen: OrigenImagen;
       borrador: Borrador;
+      requiereConfirmacion: boolean;
+      confirmado: boolean;
       aviso?: AvisoRevision;
     }
-  | { tipo: 'guardando'; solicitudId: string; origen: OrigenImagen; borrador: Borrador }
+  | {
+      tipo: 'guardando';
+      solicitudId: string;
+      origen: OrigenImagen;
+      borrador: Borrador;
+      requiereConfirmacion: boolean;
+    }
   | { tipo: 'guardado' }
+  | { tipo: 'sesion-vencida' }
   | { tipo: 'error' };
 
 export type EventoFlujo =
-  | { tipo: 'imagen-elegida'; origen: OrigenImagen; solicitudId: string }
+  | { tipo: 'imagen-elegida'; origen: OrigenFoto; solicitudId: string }
   | { tipo: 'analisis-ok'; solicitudId: string; estimacion: EstimacionNutricional }
   | { tipo: 'analisis-fallo'; solicitudId: string }
   | { tipo: 'tiempo-agotado'; solicitudId: string }
@@ -48,7 +61,12 @@ export type EventoFlujo =
   | { tipo: 'guardar'; solicitudId: string }
   | { tipo: 'guardado-ok'; solicitudId: string }
   | { tipo: 'guardado-fallo'; solicitudId: string; motivo: 'datos-invalidos' | 'error' }
-  | { tipo: 'sin-sesion' }
+  | { tipo: 'guardado-tiempo-agotado'; solicitudId: string }
+  | { tipo: 'sin-sesion'; solicitudId: string }
+  | { tipo: 'carga-manual'; solicitudId: string }
+  | { tipo: 'continuar-a-revision' }
+  | { tipo: 'cargar-otra-imagen' }
+  | { tipo: 'confirmar-revision'; confirmado: boolean }
   | { tipo: 'cancelar' }
   | { tipo: 'reintentar' }
   | { tipo: 'registrar-otro' };
@@ -56,6 +74,15 @@ export type EventoFlujo =
 export const ESTADO_INICIAL: EstadoFlujo = { tipo: 'inicio' };
 
 // `Record` sobre el tipo: agregar un campo a `CampoBorrador` sin listarlo aquí no compila.
+const BORRADOR_VACIO: Borrador = {
+  descripcion: '',
+  calorias: '',
+  carbohidratos: '',
+  proteinas: '',
+  grasas: '',
+  otros: '',
+};
+
 const CAMPOS_BORRADOR: Record<CampoBorrador, true> = {
   descripcion: true,
   calorias: true,
@@ -111,19 +138,86 @@ function editarCampo(
   }
   const nuevoValor = campo === 'descripcion' ? recortarDescripcion(valor) : valor;
   // Editar borra el aviso: si el cambio no lo resuelve, el próximo `guardar` lo vuelve a mostrar.
-  const { solicitudId, origen, borrador } = estado;
-  return { tipo: 'revision', solicitudId, origen, borrador: { ...borrador, [campo]: nuevoValor } };
+  const { solicitudId, origen, borrador, requiereConfirmacion, confirmado } = estado;
+  return {
+    tipo: 'revision',
+    solicitudId,
+    origen,
+    borrador: { ...borrador, [campo]: nuevoValor },
+    requiereConfirmacion,
+    confirmado,
+  };
+}
+
+function confirmarRevision(estado: EstadoFlujo, confirmado: boolean): EstadoFlujo {
+  if (
+    estado.tipo !== 'revision' ||
+    !estado.requiereConfirmacion ||
+    typeof confirmado !== 'boolean'
+  ) {
+    return estado;
+  }
+  const { solicitudId, origen, borrador, requiereConfirmacion } = estado;
+  return { tipo: 'revision', solicitudId, origen, borrador, requiereConfirmacion, confirmado };
+}
+
+function alAnalizar(
+  estado: EstadoFlujo,
+  evento: Extract<EventoFlujo, { tipo: 'analisis-ok' }>,
+): EstadoFlujo {
+  if (estado.tipo !== 'procesando' || estado.solicitudId !== evento.solicitudId) {
+    return estado;
+  }
+  const { solicitudId, origen } = estado;
+  const borrador = borradorDesdeEstimacion(evento.estimacion);
+  return esBajaConfianza(evento.estimacion.confianza)
+    ? { tipo: 'baja-confianza', solicitudId, origen, borrador }
+    : {
+        tipo: 'revision',
+        solicitudId,
+        origen,
+        borrador,
+        requiereConfirmacion: false,
+        confirmado: false,
+      };
+}
+
+function alAgotarseElGuardado(estado: EstadoFlujo, solicitudId: string): EstadoFlujo {
+  if (estado.tipo !== 'guardando' || estado.solicitudId !== solicitudId) {
+    return estado;
+  }
+  return volverARevision(estado, 'guardado-sin-respuesta');
+}
+
+function volverARevision(
+  estado: Extract<EstadoFlujo, { tipo: 'guardando' }>,
+  aviso: AvisoRevision,
+): EstadoFlujo {
+  const { solicitudId, origen, borrador, requiereConfirmacion } = estado;
+  // Si llegó a `guardando`, la casilla ya estaba marcada (o no se exigía).
+  return {
+    tipo: 'revision',
+    solicitudId,
+    origen,
+    borrador,
+    requiereConfirmacion,
+    confirmado: requiereConfirmacion,
+    aviso,
+  };
 }
 
 function pedirGuardado(estado: EstadoFlujo, solicitudId: string): EstadoFlujo {
   if (estado.tipo !== 'revision' || estado.solicitudId !== solicitudId) {
     return estado;
   }
+  if (estado.requiereConfirmacion && !estado.confirmado) {
+    return { ...estado, aviso: 'confirmar-revision' };
+  }
   if (sumaDesglose(desgloseDesdeBorrador(estado.borrador)) !== 100) {
     return { ...estado, aviso: 'desglose-no-suma-100' };
   }
-  const { origen, borrador } = estado;
-  return { tipo: 'guardando', solicitudId, origen, borrador };
+  const { origen, borrador, requiereConfirmacion } = estado;
+  return { tipo: 'guardando', solicitudId, origen, borrador, requiereConfirmacion };
 }
 
 export function reducirFlujo(estado: EstadoFlujo, evento: EventoFlujo): EstadoFlujo {
@@ -133,14 +227,7 @@ export function reducirFlujo(estado: EstadoFlujo, evento: EventoFlujo): EstadoFl
         ? { tipo: 'procesando', solicitudId: evento.solicitudId, origen: evento.origen }
         : estado;
     case 'analisis-ok':
-      return estado.tipo === 'procesando' && estado.solicitudId === evento.solicitudId
-        ? {
-            tipo: 'revision',
-            solicitudId: estado.solicitudId,
-            origen: estado.origen,
-            borrador: borradorDesdeEstimacion(evento.estimacion),
-          }
-        : estado;
+      return alAnalizar(estado, evento);
     case 'analisis-fallo':
     case 'tiempo-agotado':
       return estado.tipo === 'procesando' && estado.solicitudId === evento.solicitudId
@@ -156,20 +243,52 @@ export function reducirFlujo(estado: EstadoFlujo, evento: EventoFlujo): EstadoFl
         : estado;
     case 'guardado-fallo':
       return estado.tipo === 'guardando' && estado.solicitudId === evento.solicitudId
+        ? volverARevision(
+            estado,
+            evento.motivo === 'datos-invalidos' ? 'datos-invalidos' : 'error-al-guardar',
+          )
+        : estado;
+    case 'guardado-tiempo-agotado':
+      return alAgotarseElGuardado(estado, evento.solicitudId);
+    case 'sin-sesion':
+      return (estado.tipo === 'procesando' || estado.tipo === 'guardando') &&
+        estado.solicitudId === evento.solicitudId
+        ? { tipo: 'sesion-vencida' }
+        : estado;
+    case 'carga-manual':
+      return estado.tipo === 'error'
+        ? {
+            tipo: 'revision',
+            solicitudId: evento.solicitudId,
+            origen: 'manual',
+            borrador: BORRADOR_VACIO,
+            requiereConfirmacion: false,
+            confirmado: false,
+          }
+        : estado;
+    case 'continuar-a-revision':
+      return estado.tipo === 'baja-confianza'
         ? {
             tipo: 'revision',
             solicitudId: estado.solicitudId,
             origen: estado.origen,
             borrador: estado.borrador,
-            aviso: evento.motivo === 'datos-invalidos' ? 'datos-invalidos' : 'error-al-guardar',
+            requiereConfirmacion: true,
+            confirmado: false,
           }
         : estado;
-    case 'sin-sesion':
-      return ESTADO_INICIAL;
+    case 'cargar-otra-imagen':
+      return estado.tipo === 'baja-confianza' ? ESTADO_INICIAL : estado;
+    case 'confirmar-revision':
+      return confirmarRevision(estado, evento.confirmado);
     case 'cancelar':
       // En `guardando` el insert ya está en camino: "cancelar" mentiría. En `guardado` no hay nada
       // que cancelar.
-      return estado.tipo === 'guardando' || estado.tipo === 'guardado' ? estado : ESTADO_INICIAL;
+      return estado.tipo === 'guardando' ||
+        estado.tipo === 'guardado' ||
+        estado.tipo === 'sesion-vencida'
+        ? estado
+        : ESTADO_INICIAL;
     case 'reintentar':
       return estado.tipo === 'error' ? ESTADO_INICIAL : estado;
     case 'registrar-otro':

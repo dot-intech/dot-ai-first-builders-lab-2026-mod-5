@@ -8,6 +8,8 @@ export const CALORIAS_MAX = 10000;
 export const IMAGEN_MAX_BYTES = 950_000;
 // Única frontera de la baja confianza (NFR-01): hasta este valor inclusive se pide revisar.
 export const UMBRAL_CONFIANZA = 70;
+/** Sin respuesta del guardado a los 30 s, el flujo vuelve a la revisión conservando el borrador. */
+export const TIEMPO_LIMITE_GUARDADO_MS = 30_000;
 
 // Orden fijo: define el desempate del reparto por mayor resto y el orden de lectura del desglose.
 const CLAVES_DESGLOSE = ['carbohidratos', 'proteinas', 'grasas', 'otros'] as const;

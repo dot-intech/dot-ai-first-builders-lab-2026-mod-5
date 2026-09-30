@@ -1,8 +1,7 @@
 import Link from 'next/link';
 import type { ChangeEvent } from 'react';
 import { CALORIAS_MAX, DESCRIPCION_MAX } from '../domain/rules';
-import type { OrigenImagen } from '../domain/types';
-import type { AvisoRevision, Borrador, CampoBorrador } from './flujo-nuevo-consumo';
+import type { AvisoRevision, Borrador, CampoBorrador, OrigenFoto } from './flujo-nuevo-consumo';
 import estilos from './nuevo-consumo.module.css';
 
 /*
@@ -23,12 +22,12 @@ const TEXTO_AVISO: Record<AvisoRevision, string> = {
 };
 
 export type PantallaInicioProps = {
-  onSeleccionarImagen: (archivo: File, origen: OrigenImagen) => void;
+  onSeleccionarImagen: (archivo: File, origen: OrigenFoto) => void;
 };
 
 /** Selección de la foto: cámara o galería, más la salida del flujo sin guardar nada (AC-13). */
 export function PantallaInicio({ onSeleccionarImagen }: PantallaInicioProps) {
-  function manejarCambio(origen: OrigenImagen) {
+  function manejarCambio(origen: OrigenFoto) {
     return (evento: ChangeEvent<HTMLInputElement>) => {
       const archivo = evento.target.files?.[0];
       if (archivo !== undefined) {
@@ -90,6 +89,10 @@ export function PantallaProcesando({ onCancelar }: PantallaProcesandoProps) {
 
 export type PantallaRevisionProps = {
   borrador: Borrador;
+  esManual: boolean;
+  requiereConfirmacion: boolean;
+  confirmado: boolean;
+  onConfirmar: (confirmado: boolean) => void;
   aviso?: AvisoRevision;
   onCampoEditado: (campo: CampoBorrador, valor: string) => void;
   onGuardar: () => void;
@@ -99,6 +102,10 @@ export type PantallaRevisionProps = {
 /** Formulario editable con el borrador (AC-06, AC-07, AC-08, AC-11) y el aviso vigente, si hay. */
 export function PantallaRevision({
   borrador,
+  esManual,
+  requiereConfirmacion,
+  confirmado,
+  onConfirmar,
   aviso,
   onCampoEditado,
   onGuardar,
@@ -112,7 +119,7 @@ export function PantallaRevision({
 
   return (
     <main>
-      <p>Esta información es una estimación y puede ser inexacta.</p>
+      {!esManual && <p>Esta información es una estimación y puede ser inexacta.</p>}
       {aviso !== undefined && <p role="alert">{TEXTO_AVISO[aviso]}</p>}
       <form>
         <p>
@@ -202,6 +209,21 @@ export function PantallaRevision({
             />
           </label>
         </p>
+        {requiereConfirmacion && (
+          <p>
+            <label>
+              <input
+                type="checkbox"
+                className={estilos.campo}
+                checked={confirmado}
+                onChange={(evento: ChangeEvent<HTMLInputElement>) =>
+                  onConfirmar(evento.target.checked)
+                }
+              />
+              Revisé la descripción y las calorías
+            </label>
+          </p>
+        )}
         <p>
           <button type="button" className={estilos.boton} onClick={onGuardar}>
             Guardar
@@ -226,16 +248,20 @@ export function PantallaGuardando() {
 
 export type PantallaErrorProps = {
   onReintentar: () => void;
+  onCargarManual: () => void;
   onCancelar: () => void;
 };
 
 /** Fin del flujo tras un fallo, sin detalle técnico (FR-15, AC-15). */
-export function PantallaError({ onReintentar, onCancelar }: PantallaErrorProps) {
+export function PantallaError({ onReintentar, onCargarManual, onCancelar }: PantallaErrorProps) {
   return (
     <main>
       <p>No pudimos analizar la imagen. Probá de nuevo.</p>
       <button type="button" className={estilos.boton} onClick={onReintentar}>
         Reintentar
+      </button>{' '}
+      <button type="button" className={estilos.boton} onClick={onCargarManual}>
+        Cargar manualmente
       </button>{' '}
       <button type="button" className={estilos.boton} onClick={onCancelar}>
         Cancelar

@@ -5,6 +5,7 @@ import {
   CALORIAS_MAX,
   DESCRIPCION_MAX,
   IMAGEN_MAX_BYTES,
+  TIEMPO_LIMITE_GUARDADO_MS,
   UMBRAL_CONFIANZA,
   esBajaConfianza,
   esJpeg,
@@ -43,6 +44,12 @@ function datosValidos() {
     solicitudId: SOLICITUD_ID,
   };
 }
+
+describe('TIEMPO_LIMITE_GUARDADO_MS', () => {
+  it('debe valer 30 segundos (NFR-03)', () => {
+    expect(TIEMPO_LIMITE_GUARDADO_MS).toBe(30_000);
+  });
+});
 
 describe('límites', () => {
   it('deben coincidir con los CHECKs de la tabla consumos y el tope de imagen de la spec', () => {

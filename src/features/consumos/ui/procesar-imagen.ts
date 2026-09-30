@@ -33,7 +33,7 @@ function eventoDeAnalisis(resultado: ResultadoAnalisis, solicitudId: string): Ev
     case 'estimacion':
       return { tipo: 'analisis-ok', solicitudId, estimacion: resultado.estimacion };
     case 'sin-sesion':
-      return { tipo: 'sin-sesion' };
+      return { tipo: 'sin-sesion', solicitudId };
     case 'error':
       return fallo;
     default:
@@ -55,7 +55,7 @@ function eventoDeGuardado(resultado: ResultadoGuardado, solicitudId: string): Ev
     case 'datos-invalidos':
       return { tipo: 'guardado-fallo', solicitudId, motivo: 'datos-invalidos' };
     case 'sin-sesion':
-      return { tipo: 'sin-sesion' };
+      return { tipo: 'sin-sesion', solicitudId };
     case 'error':
       return fallo;
     default:

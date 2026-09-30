@@ -44,6 +44,13 @@ function inputsDe(nodo: ReactNode): InputConOnChange[] {
   return [...propios, ...deHijos];
 }
 
+const CONFIRMACION_OFF = {
+  esManual: false,
+  requiereConfirmacion: false,
+  confirmado: false,
+  onConfirmar: vi.fn(),
+};
+
 type BotonConOnClick = ReactElement<{ children?: ReactNode; onClick: () => void }>;
 
 /** Igual que `inputsDe`, pero para los `<button>`: permite invocar su `onClick` sin DOM. */
@@ -137,6 +144,7 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(
         <PantallaRevision
           borrador={BORRADOR}
+          {...CONFIRMACION_OFF}
           onCampoEditado={vi.fn()}
           onGuardar={vi.fn()}
           onCancelar={vi.fn()}
@@ -163,6 +171,7 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(
         <PantallaRevision
           borrador={BORRADOR}
+          {...CONFIRMACION_OFF}
           onCampoEditado={vi.fn()}
           onGuardar={vi.fn()}
           onCancelar={vi.fn()}
@@ -188,6 +197,7 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(
         <PantallaRevision
           borrador={BORRADOR}
+          {...CONFIRMACION_OFF}
           onCampoEditado={vi.fn()}
           onGuardar={vi.fn()}
           onCancelar={vi.fn()}
@@ -207,6 +217,7 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(
         <PantallaRevision
           borrador={BORRADOR}
+          {...CONFIRMACION_OFF}
           aviso={aviso}
           onCampoEditado={vi.fn()}
           onGuardar={vi.fn()}
@@ -221,6 +232,7 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(
         <PantallaRevision
           borrador={BORRADOR}
+          {...CONFIRMACION_OFF}
           onCampoEditado={vi.fn()}
           onGuardar={vi.fn()}
           onCancelar={vi.fn()}
@@ -236,6 +248,7 @@ describe('pantallas-nuevo-consumo', () => {
       const html = renderToStaticMarkup(
         <PantallaRevision
           borrador={BORRADOR}
+          {...CONFIRMACION_OFF}
           onCampoEditado={vi.fn()}
           onGuardar={vi.fn()}
           onCancelar={vi.fn()}
@@ -253,6 +266,7 @@ describe('pantallas-nuevo-consumo', () => {
       const espia = vi.fn();
       const inputs = inputsDe(
         PantallaRevision({
+          ...CONFIRMACION_OFF,
           borrador: BORRADOR,
           onCampoEditado: espia,
           onGuardar: vi.fn(),
@@ -298,12 +312,113 @@ describe('pantallas-nuevo-consumo', () => {
   describe('PantallaError', () => {
     it('muestra el mensaje fijo y los botones "Reintentar" y "Cancelar"', () => {
       const html = renderToStaticMarkup(
-        <PantallaError onReintentar={vi.fn()} onCancelar={vi.fn()} />,
+        <PantallaError onReintentar={vi.fn()} onCancelar={vi.fn()} onCargarManual={vi.fn()} />,
       );
 
       expect(html).toContain('No pudimos analizar la imagen. Probá de nuevo.');
       expect(html).toContain('Reintentar');
       expect(html).toContain('Cancelar');
+    });
+  });
+
+  describe('PantallaError con carga manual', () => {
+    it('muestra "Cargar manualmente" y su onClick llama a onCargarManual', () => {
+      const onCargarManual = vi.fn();
+      const props = { onReintentar: vi.fn(), onCancelar: vi.fn(), onCargarManual };
+
+      const html = renderToStaticMarkup(<PantallaError {...props} />);
+      const boton = botonesDe(PantallaError(props)).find(
+        (b) => b.props.children === 'Cargar manualmente',
+      );
+
+      expect(html).toContain('Cargar manualmente');
+      expect(html).toContain('Reintentar');
+      expect(html).toContain('Cancelar');
+      boton?.props.onClick();
+      expect(onCargarManual).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('PantallaRevision con confirmación y carga manual', () => {
+    const base = {
+      borrador: BORRADOR,
+      onCampoEditado: vi.fn(),
+      onGuardar: vi.fn(),
+      onCancelar: vi.fn(),
+    };
+
+    it('con requiereConfirmacion muestra la casilla y su onChange llama a onConfirmar', () => {
+      const onConfirmar = vi.fn();
+      const props = {
+        ...base,
+        esManual: false,
+        requiereConfirmacion: true,
+        confirmado: false,
+        onConfirmar,
+      };
+
+      const html = renderToStaticMarkup(<PantallaRevision {...props} />);
+      const casilla = inputsDe(PantallaRevision(props)).find(
+        (i) => (i.props as { type?: string }).type === 'checkbox',
+      );
+
+      expect(html).toContain('Revisé la descripción y las calorías');
+      expect(html).toContain('type="checkbox"');
+      casilla?.props.onChange({ target: { checked: true } } as ChangeEvent<HTMLInputElement>);
+      expect(onConfirmar).toHaveBeenCalledWith(true);
+    });
+
+    it('con confirmado true la casilla sale marcada', () => {
+      const html = renderToStaticMarkup(
+        <PantallaRevision
+          {...base}
+          esManual={false}
+          requiereConfirmacion
+          confirmado
+          onConfirmar={vi.fn()}
+        />,
+      );
+
+      expect(html).toContain('checked');
+    });
+
+    it('sin requiereConfirmacion no muestra la casilla', () => {
+      const html = renderToStaticMarkup(
+        <PantallaRevision
+          {...base}
+          esManual={false}
+          requiereConfirmacion={false}
+          confirmado={false}
+          onConfirmar={vi.fn()}
+        />,
+      );
+
+      expect(html).not.toContain('Revisé la descripción y las calorías');
+      expect(html).not.toContain('checkbox');
+    });
+
+    it('en carga manual no muestra "Esta información es una estimación"; con foto sí', () => {
+      const manual = renderToStaticMarkup(
+        <PantallaRevision
+          {...base}
+          esManual
+          requiereConfirmacion={false}
+          confirmado={false}
+          onConfirmar={vi.fn()}
+        />,
+      );
+      const foto = renderToStaticMarkup(
+        <PantallaRevision
+          {...base}
+          esManual={false}
+          requiereConfirmacion={false}
+          confirmado={false}
+          onConfirmar={vi.fn()}
+        />,
+      );
+
+      expect(manual).not.toContain('Esta información es una estimación');
+      expect(foto).toContain('Esta información es una estimación');
     });
   });
 
@@ -406,6 +521,7 @@ describe('pantallas-nuevo-consumo', () => {
         renderToStaticMarkup(
           <PantallaRevision
             borrador={BORRADOR}
+            {...CONFIRMACION_OFF}
             aviso="error-al-guardar"
             onCampoEditado={vi.fn()}
             onGuardar={vi.fn()}
@@ -414,7 +530,9 @@ describe('pantallas-nuevo-consumo', () => {
         ),
         renderToStaticMarkup(<PantallaGuardando />),
         renderToStaticMarkup(<PantallaGuardado onRegistrarOtro={vi.fn()} />),
-        renderToStaticMarkup(<PantallaError onReintentar={vi.fn()} onCancelar={vi.fn()} />),
+        renderToStaticMarkup(
+          <PantallaError onReintentar={vi.fn()} onCancelar={vi.fn()} onCargarManual={vi.fn()} />,
+        ),
       ].join('\n');
 
       for (const prohibido of ['gemini', 'generativelanguage', 'apiKey', 'inlineData']) {
