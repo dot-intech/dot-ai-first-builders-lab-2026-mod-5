@@ -53,3 +53,11 @@ Opción 1, con decisiones del usuario del 2026-09-24/25:
 - El ID `gemini-3.1-flash-lite` se confirma con una prueba manual cuando el usuario cargue la key.
 - Archivos afectados: `src/env.ts` (+ test), `.env.example`, `package.json`, `pnpm-lock.yaml` y
   `src/features/consumos/data/modelo-vision.ts` (+ test).
+
+> **Nota 2026-09-29 (FEAT-001c).** El prompt suma un quinto punto que pide `"confianza"`: un entero de
+> 0 a 100 con el nivel de confianza del modelo en que la descripción, las calorías y el desglose
+> reflejan la foto. El `responseSchema` gana `confianza: { type: Type.NUMBER }`, que también entra en
+> `required` y `propertyOrdering`. El guard toma una `confianza` ausente o no numérica como `0` (baja
+> confianza) en vez de lanzar, y `analizarImagen` la normaliza a un entero de 0 a 100. No se persiste.
+> Los tests siguen sin llamar a la API paga. El umbral y la normalización viven en `domain/rules.ts`, no
+> en este adaptador. Ver ADR-010.
