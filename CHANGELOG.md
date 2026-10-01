@@ -7,6 +7,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- [FEAT-001c] Carga manual y manejo de baja confianza en el registro de consumo por foto. Si el
+  análisis falla, el usuario puede cargar a mano la descripción, las calorías y el desglose (que debe
+  sumar 100; `origen = manual`). El modelo informa su confianza (no se persiste) y con confianza <= 70
+  se muestra una advertencia con tres salidas: cargar otra imagen, revisar los datos (guardar exige
+  marcar una casilla de confirmación) o cancelar. El guardado es idempotente por `solicitudId`
+  (columna `solicitud_id`, índice único `(usuario_id, solicitud_id)` y migración 0002, que también
+  admite `'manual'` en el CHECK de `origen`): reintentar no duplica la fila. El guardado se corta a
+  los 30 s con aviso y el borrador intacto, y si la sesión vence se avisa antes de ir a iniciar
+  sesión. Decisiones en ADR-010.
 - [FEAT-001b] Registrar un consumo a partir de una foto (cámara o galería): análisis con el modelo de
   visión de Gemini (`gemini-3.1-flash-lite`, `@google/genai`) que estima descripción, calorías y
   desglose nutricional (carbohidratos/proteínas/grasas/otros, normalizado a que sume 100). El usuario
