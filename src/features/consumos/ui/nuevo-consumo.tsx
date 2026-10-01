@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useReducer, useRef } from 'react';
-import type { OrigenImagen } from '../domain/types';
+import { TIEMPO_LIMITE_GUARDADO_MS } from '../domain/rules';
 import { analizarFotoConsumo, guardarNuevoConsumo } from './actions';
 import { reencodearComoJpeg } from './canvas-imagen';
 import {
@@ -10,8 +10,11 @@ import {
   reducirFlujo,
   type CampoBorrador,
   type EventoFlujo,
+  type OrigenFoto,
 } from './flujo-nuevo-consumo';
 import estilos from './nuevo-consumo.module.css';
+import { PantallaBajaConfianza } from './pantalla-baja-confianza';
+import { PantallaSesionVencida } from './pantalla-sesion-vencida';
 import {
   PantallaError,
   PantallaGuardado,
@@ -44,12 +47,20 @@ export function NuevoConsumo() {
 
   function despacharEvento(evento: EventoFlujo) {
     despachar(evento);
-    // La página redirige (Block 8); el contenedor solo refresca el árbol del servidor para que
-    // deje de considerar la sesión vigente.
-    if (evento.tipo === 'sin-sesion') {
-      router.refresh();
-    }
   }
+
+  // Temporizador de guardado (NFR-03): al entrar a `guardando` corta a los 30 s y vuelve a la
+  // revisión con el borrador; se limpia al salir. El reintento reusa el `solicitudId` (idempotente).
+  useEffect(() => {
+    if (estado.tipo !== 'guardando') {
+      return;
+    }
+    const { solicitudId } = estado;
+    const temporizador = setTimeout(() => {
+      despacharEvento({ tipo: 'guardado-tiempo-agotado', solicitudId });
+    }, TIEMPO_LIMITE_GUARDADO_MS);
+    return () => clearTimeout(temporizador);
+  }, [estado]);
 
   // Temporizador de 30 s: arranca al entrar a `procesando` (justo lo que dispara `imagen-elegida`)
   // y se limpia al salir de ese estado, para cualquier motivo.
@@ -62,7 +73,6 @@ export function NuevoConsumo() {
       despacharEvento({ tipo: 'tiempo-agotado', solicitudId });
     }, TIEMPO_LIMITE_MS);
     return () => clearTimeout(temporizador);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- despacharEvento usa el dispatch estable de useReducer; incluirla reiniciaría el temporizador sin motivo.
   }, [estado]);
 
   // Análisis de la foto: reacciona a la transición a `procesando`, nunca al `onChange` directamente.
@@ -86,7 +96,6 @@ export function NuevoConsumo() {
       { archivo: elegido.archivo, solicitudId },
       { reencodear: reencodearComoJpeg, analizar: analizarFotoConsumo },
     ).then(despacharEvento);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver nota del temporizador.
   }, [estado]);
 
   // Guardado: reacciona a la transición a `guardando` (Block 7), nunca al clic de "Guardar": así
@@ -116,10 +125,9 @@ export function NuevoConsumo() {
     procesarGuardado({ borrador, origen, solicitudId }, { guardar: guardarNuevoConsumo }).then(
       despacharEvento,
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ver nota del temporizador.
   }, [estado]);
 
-  function manejarSeleccionarImagen(archivo: File, origen: OrigenImagen) {
+  function manejarSeleccionarImagen(archivo: File, origen: OrigenFoto) {
     const solicitudId = crypto.randomUUID();
     archivoElegidoRef.current = { solicitudId, archivo };
     despacharEvento({ tipo: 'imagen-elegida', origen, solicitudId });
@@ -143,6 +151,12 @@ export function NuevoConsumo() {
         return (
           <PantallaRevision
             borrador={estado.borrador}
+            esManual={estado.origen === 'manual'}
+            requiereConfirmacion={estado.requiereConfirmacion}
+            confirmado={estado.confirmado}
+            onConfirmar={(confirmado) =>
+              despacharEvento({ tipo: 'confirmar-revision', confirmado })
+            }
             aviso={estado.aviso}
             onCampoEditado={manejarCampoEditado}
             // El reductor (`pedirGuardado`, Block 7, 27aae3e) exige que el id coincida con el de
@@ -153,8 +167,20 @@ export function NuevoConsumo() {
             onCancelar={manejarCancelar}
           />
         );
+      case 'baja-confianza':
+        return (
+          <PantallaBajaConfianza
+            onCargarOtraImagen={() => despacharEvento({ tipo: 'cargar-otra-imagen' })}
+            onRevisarDatos={() => despacharEvento({ tipo: 'continuar-a-revision' })}
+            onCancelar={manejarCancelar}
+          />
+        );
       case 'guardando':
         return <PantallaGuardando />;
+      case 'sesion-vencida':
+        // Solo refresca: la página redirige a `RUTA_LOGIN` (MC-6). El borrador ya no está en el
+        // estado (MC-8).
+        return <PantallaSesionVencida onIniciarSesion={() => router.refresh()} />;
       case 'guardado':
         return (
           <PantallaGuardado onRegistrarOtro={() => despacharEvento({ tipo: 'registrar-otro' })} />
@@ -163,6 +189,9 @@ export function NuevoConsumo() {
         return (
           <PantallaError
             onReintentar={() => despacharEvento({ tipo: 'reintentar' })}
+            onCargarManual={() =>
+              despacharEvento({ tipo: 'carga-manual', solicitudId: crypto.randomUUID() })
+            }
             onCancelar={manejarCancelar}
           />
         );

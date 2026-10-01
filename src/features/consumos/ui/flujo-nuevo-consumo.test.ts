@@ -16,6 +16,7 @@ const ESTIMACION: EstimacionNutricional = {
   descripcion: 'Milanesa con puré',
   calorias: 850,
   desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
+  confianza: 85,
 };
 
 const BORRADOR: Borrador = {
@@ -33,13 +34,40 @@ const REVISION: EstadoFlujo = {
   solicitudId: ID,
   origen: 'camara',
   borrador: BORRADOR,
+  requiereConfirmacion: false,
+  confirmado: false,
 };
 const GUARDANDO: EstadoFlujo = {
   tipo: 'guardando',
   solicitudId: ID,
   origen: 'camara',
   borrador: BORRADOR,
+  requiereConfirmacion: false,
 };
+const BAJA_CONFIANZA: EstadoFlujo = {
+  tipo: 'baja-confianza',
+  solicitudId: ID,
+  origen: 'camara',
+  borrador: BORRADOR,
+};
+const REVISION_CONFIRMABLE: EstadoFlujo = {
+  ...REVISION,
+  requiereConfirmacion: true,
+  confirmado: false,
+} as EstadoFlujo;
+const GUARDANDO_CONFIRMABLE: EstadoFlujo = {
+  ...GUARDANDO,
+  requiereConfirmacion: true,
+} as EstadoFlujo;
+const BORRADOR_VACIO: Borrador = {
+  descripcion: '',
+  calorias: '',
+  carbohidratos: '',
+  proteinas: '',
+  grasas: '',
+  otros: '',
+};
+const SESION_VENCIDA: EstadoFlujo = { tipo: 'sesion-vencida' };
 const GUARDADO: EstadoFlujo = { tipo: 'guardado' };
 const ERROR: EstadoFlujo = { tipo: 'error' };
 
@@ -105,7 +133,29 @@ describe('flujo-nuevo-consumo', () => {
         solicitudId: ID,
         origen: 'camara',
         borrador: BORRADOR,
+        requiereConfirmacion: false,
+        confirmado: false,
       });
+    });
+
+    it('con confianza 70 debe pasar a baja-confianza con el borrador (frontera, NFR-01)', () => {
+      const estado = reducirFlujo(PROCESANDO, {
+        tipo: 'analisis-ok',
+        solicitudId: ID,
+        estimacion: { ...ESTIMACION, confianza: 70 },
+      });
+
+      expect(estado).toEqual(BAJA_CONFIANZA);
+    });
+
+    it('con confianza 71 debe pasar a revision sin exigir confirmación (frontera, NFR-01)', () => {
+      const estado = reducirFlujo(PROCESANDO, {
+        tipo: 'analisis-ok',
+        solicitudId: ID,
+        estimacion: { ...ESTIMACION, confianza: 71 },
+      });
+
+      expect(estado).toEqual(REVISION);
     });
 
     it('con solicitudId viejo debe ignorarse después de cancelar', () => {
@@ -257,6 +307,7 @@ describe('flujo-nuevo-consumo', () => {
         solicitudId: ID,
         origen: 'camara',
         borrador: BORRADOR,
+        requiereConfirmacion: false,
       });
       expect(reducirFlujo(guardando, { tipo: 'guardado-ok', solicitudId: ID })).toEqual({
         tipo: 'guardado',
@@ -325,6 +376,8 @@ describe('flujo-nuevo-consumo', () => {
         solicitudId: ID,
         origen: 'camara',
         borrador: editado,
+        requiereConfirmacion: false,
+        confirmado: false,
         aviso: 'error-al-guardar',
       });
     });
@@ -342,6 +395,20 @@ describe('flujo-nuevo-consumo', () => {
       ).toBe(GUARDANDO);
     });
 
+    it('guardado-fallo desde guardando confirmado debe volver a revision conservando confirmado', () => {
+      const estado = reducirFlujo(GUARDANDO_CONFIRMABLE, {
+        tipo: 'guardado-fallo',
+        solicitudId: ID,
+        motivo: 'error',
+      });
+
+      expect(estado).toEqual({
+        ...REVISION_CONFIRMABLE,
+        confirmado: true,
+        aviso: 'error-al-guardar',
+      });
+    });
+
     it('fuera de guardando deben ignorarse', () => {
       expect(reducirFlujo(REVISION, { tipo: 'guardado-ok', solicitudId: ID })).toBe(REVISION);
       expect(
@@ -356,6 +423,7 @@ describe('flujo-nuevo-consumo', () => {
       ['procesando', PROCESANDO],
       ['revision', REVISION],
       ['error', ERROR],
+      ['baja-confianza', BAJA_CONFIANZA],
     ])('desde %s debe volver a inicio sin datos', (_nombre, estado) => {
       expect(reducirFlujo(estado, { tipo: 'cancelar' })).toEqual({ tipo: 'inicio' });
     });
@@ -410,8 +478,201 @@ describe('flujo-nuevo-consumo', () => {
     it.each<[string, EstadoFlujo]>([
       ['procesando', PROCESANDO],
       ['guardando', GUARDANDO],
-    ])('desde %s debe volver a inicio', (_nombre, estado) => {
-      expect(reducirFlujo(estado, { tipo: 'sin-sesion' })).toEqual({ tipo: 'inicio' });
+    ])('con el id vigente desde %s debe pasar a sesion-vencida', (_nombre, estado) => {
+      expect(reducirFlujo(estado, { tipo: 'sin-sesion', solicitudId: ID })).toEqual({
+        tipo: 'sesion-vencida',
+      });
+    });
+
+    it.each<[string, EstadoFlujo, string]>([
+      ['procesando con id distinto', PROCESANDO, ID_VIEJO],
+      ['guardando con id distinto', GUARDANDO, ID_VIEJO],
+      ['revision', REVISION, ID],
+      ['inicio', ESTADO_INICIAL, ID],
+      ['guardado', GUARDADO, ID],
+      ['error', ERROR, ID],
+      ['baja-confianza', BAJA_CONFIANZA, ID],
+    ])('en %s debe devolver el mismo estado (A6, MC-9)', (_nombre, estado, solicitudId) => {
+      expect(reducirFlujo(estado, { tipo: 'sin-sesion', solicitudId })).toBe(estado);
+    });
+
+    it('cancelar en sesion-vencida debe devolver el mismo estado', () => {
+      expect(reducirFlujo(SESION_VENCIDA, { tipo: 'cancelar' })).toBe(SESION_VENCIDA);
+    });
+  });
+
+  describe('baja confianza', () => {
+    it('cargar-otra-imagen desde baja-confianza debe volver a inicio', () => {
+      expect(reducirFlujo(BAJA_CONFIANZA, { tipo: 'cargar-otra-imagen' })).toEqual({
+        tipo: 'inicio',
+      });
+    });
+
+    it('continuar-a-revision debe pasar a revision con el mismo borrador y exigir confirmación', () => {
+      expect(reducirFlujo(BAJA_CONFIANZA, { tipo: 'continuar-a-revision' })).toEqual(
+        REVISION_CONFIRMABLE,
+      );
+    });
+
+    it('cancelar desde baja-confianza debe volver a inicio (FR-05)', () => {
+      expect(reducirFlujo(BAJA_CONFIANZA, { tipo: 'cancelar' })).toEqual({ tipo: 'inicio' });
+    });
+
+    it('continuar-a-revision y cargar-otra-imagen fuera de baja-confianza no cambian el estado', () => {
+      expect(reducirFlujo(REVISION, { tipo: 'continuar-a-revision' })).toBe(REVISION);
+      expect(reducirFlujo(REVISION, { tipo: 'cargar-otra-imagen' })).toBe(REVISION);
+    });
+
+    it('guardar sin confirmar debe quedar en revision con aviso confirmar-revision', () => {
+      const estado = reducirFlujo(REVISION_CONFIRMABLE, { tipo: 'guardar', solicitudId: ID });
+
+      expect(estado).toEqual({ ...REVISION_CONFIRMABLE, aviso: 'confirmar-revision' });
+    });
+
+    it('tras confirmar-revision, guardar con el mismo borrador debe pasar a guardando', () => {
+      const confirmada = reducirFlujo(REVISION_CONFIRMABLE, {
+        tipo: 'confirmar-revision',
+        confirmado: true,
+      });
+
+      expect(confirmada).toEqual({ ...REVISION_CONFIRMABLE, confirmado: true });
+      expect(reducirFlujo(confirmada, { tipo: 'guardar', solicitudId: ID })).toEqual(
+        GUARDANDO_CONFIRMABLE,
+      );
+    });
+
+    it('confirmar-revision debe borrar el aviso y poder desmarcarse', () => {
+      const conAviso = { ...REVISION_CONFIRMABLE, aviso: 'confirmar-revision' } as EstadoFlujo;
+
+      const marcada = reducirFlujo(conAviso, { tipo: 'confirmar-revision', confirmado: true });
+      const desmarcada = reducirFlujo(marcada, { tipo: 'confirmar-revision', confirmado: false });
+
+      expect(marcada).not.toHaveProperty('aviso');
+      expect(desmarcada).toEqual(REVISION_CONFIRMABLE);
+    });
+
+    it('confirmar-revision sin requiereConfirmacion o fuera de revision no cambia el estado', () => {
+      const evento: EventoFlujo = { tipo: 'confirmar-revision', confirmado: true };
+
+      expect(reducirFlujo(REVISION, evento)).toBe(REVISION);
+      expect(reducirFlujo(GUARDANDO, evento)).toBe(GUARDANDO);
+    });
+
+    it('campo-editado conserva requiereConfirmacion y confirmado', () => {
+      const confirmada = { ...REVISION_CONFIRMABLE, confirmado: true } as EstadoFlujo;
+
+      const estado = reducirFlujo(confirmada, {
+        tipo: 'campo-editado',
+        campo: 'calorias',
+        valor: '900',
+      });
+
+      expect(estado).toEqual({
+        ...confirmada,
+        borrador: { ...BORRADOR, calorias: '900' },
+      });
+    });
+  });
+
+  describe('carga manual', () => {
+    const MANUAL: EstadoFlujo = {
+      tipo: 'revision',
+      solicitudId: 'manual-1',
+      origen: 'manual',
+      borrador: BORRADOR_VACIO,
+      requiereConfirmacion: false,
+      confirmado: false,
+    };
+
+    it('desde error debe pasar a revision con borrador vacío, origen manual y el id recibido', () => {
+      expect(reducirFlujo(ERROR, { tipo: 'carga-manual', solicitudId: 'manual-1' })).toEqual(
+        MANUAL,
+      );
+    });
+
+    it.each<[string, EstadoFlujo]>([
+      ['inicio', ESTADO_INICIAL],
+      ['procesando', PROCESANDO],
+      ['revision', REVISION],
+      ['guardando', GUARDANDO],
+      ['baja-confianza', BAJA_CONFIANZA],
+      ['sesion-vencida', SESION_VENCIDA],
+    ])('fuera de error (%s) no debe cambiar el estado', (_nombre, estado) => {
+      expect(reducirFlujo(estado, { tipo: 'carga-manual', solicitudId: 'manual-1' })).toBe(estado);
+    });
+
+    it('con el desglose vacío debe quedar en revision con aviso desglose-no-suma-100', () => {
+      const estado = reducirFlujo(MANUAL, { tipo: 'guardar', solicitudId: 'manual-1' });
+
+      expect(estado).toEqual({ ...MANUAL, aviso: 'desglose-no-suma-100' });
+    });
+
+    it('con datos válidos que suman 100 debe pasar a guardando con origen manual', () => {
+      const completa = aplicar(
+        MANUAL,
+        { tipo: 'campo-editado', campo: 'descripcion', valor: 'Pizza' },
+        { tipo: 'campo-editado', campo: 'calorias', valor: '700' },
+        { tipo: 'campo-editado', campo: 'carbohidratos', valor: '50' },
+        { tipo: 'campo-editado', campo: 'proteinas', valor: '20' },
+        { tipo: 'campo-editado', campo: 'grasas', valor: '20' },
+        { tipo: 'campo-editado', campo: 'otros', valor: '10' },
+        { tipo: 'guardar', solicitudId: 'manual-1' },
+      );
+
+      expect(completa).toMatchObject({
+        tipo: 'guardando',
+        solicitudId: 'manual-1',
+        origen: 'manual',
+      });
+    });
+
+    it('cancelar desde la carga manual debe volver a inicio', () => {
+      expect(reducirFlujo(MANUAL, { tipo: 'cancelar' })).toEqual({ tipo: 'inicio' });
+    });
+  });
+
+  describe('guardado-tiempo-agotado', () => {
+    it('en guardando con el mismo id debe volver a revision con el borrador y aviso guardado-sin-respuesta', () => {
+      expect(reducirFlujo(GUARDANDO, { tipo: 'guardado-tiempo-agotado', solicitudId: ID })).toEqual(
+        { ...REVISION, aviso: 'guardado-sin-respuesta' },
+      );
+    });
+
+    it('con requiereConfirmacion debe volver con confirmado true', () => {
+      expect(
+        reducirFlujo(GUARDANDO_CONFIRMABLE, { tipo: 'guardado-tiempo-agotado', solicitudId: ID }),
+      ).toEqual({ ...REVISION_CONFIRMABLE, confirmado: true, aviso: 'guardado-sin-respuesta' });
+    });
+
+    it('con otro solicitudId o fuera de guardando no debe cambiar el estado', () => {
+      expect(
+        reducirFlujo(GUARDANDO, { tipo: 'guardado-tiempo-agotado', solicitudId: ID_VIEJO }),
+      ).toBe(GUARDANDO);
+      expect(reducirFlujo(REVISION, { tipo: 'guardado-tiempo-agotado', solicitudId: ID })).toBe(
+        REVISION,
+      );
+      expect(reducirFlujo(PROCESANDO, { tipo: 'guardado-tiempo-agotado', solicitudId: ID })).toBe(
+        PROCESANDO,
+      );
+    });
+
+    it('una respuesta tardía guardado-ok o guardado-fallo tras el corte se ignora (D4)', () => {
+      const tras = reducirFlujo(GUARDANDO, { tipo: 'guardado-tiempo-agotado', solicitudId: ID });
+
+      expect(reducirFlujo(tras, { tipo: 'guardado-ok', solicitudId: ID })).toBe(tras);
+      expect(reducirFlujo(tras, { tipo: 'guardado-fallo', solicitudId: ID, motivo: 'error' })).toBe(
+        tras,
+      );
+    });
+
+    it('guardar otra vez tras el corte debe pasar a guardando con el mismo solicitudId', () => {
+      const estado = aplicar(
+        GUARDANDO,
+        { tipo: 'guardado-tiempo-agotado', solicitudId: ID },
+        { tipo: 'guardar', solicitudId: ID },
+      );
+
+      expect(estado).toEqual(GUARDANDO);
     });
   });
 
@@ -441,17 +702,18 @@ describe('flujo-nuevo-consumo', () => {
   });
 
   describe('datosDesdeBorrador', () => {
-    it('debe convertir los strings a números y agregar el origen', () => {
-      expect(datosDesdeBorrador(BORRADOR, 'galeria')).toEqual({
+    it('debe convertir los strings a números e incluir el origen y el solicitudId', () => {
+      expect(datosDesdeBorrador(BORRADOR, 'galeria', ID)).toEqual({
         descripcion: 'Milanesa con puré',
         calorias: 850,
         desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
         origen: 'galeria',
+        solicitudId: ID,
       });
     });
 
     it('debe convertir un campo vacío en NaN para que el servidor lo rechace', () => {
-      const datos = datosDesdeBorrador({ ...BORRADOR, calorias: '  ' }, 'camara') as {
+      const datos = datosDesdeBorrador({ ...BORRADOR, calorias: '  ' }, 'camara', ID) as {
         calorias: number;
       };
 

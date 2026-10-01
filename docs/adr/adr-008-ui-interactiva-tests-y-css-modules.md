@@ -53,3 +53,8 @@ Opción 1 para tests y CSS Modules para estilos, elegidas por el usuario el 2026
 - Convención para features futuras: CSS Modules por componente; nada de CSS global salvo el reset
   que importe `src/app/layout.tsx`, si alguna vez hace falta.
 - Actualiza ADR-006: la sigue en su intención (sin librerías nuevas) y cierra su pendiente.
+
+> **Nota 2026-09-29 (FEAT-001c).** FEAT-001c no agrega excepciones: la lista de `coverage.exclude` sigue
+> siendo exactamente la de arriba. Las pantallas nuevas van en archivos propios y se prueban con
+> `renderToStaticMarkup`; las decisiones nuevas (baja confianza, carga manual, tiempo de guardado, sesión
+> vencida) viven en el reductor. Ver ADR-010.

@@ -11,7 +11,13 @@ export type AnalisisImagenReason =
   | 'fallo'
   | 'respuesta-invalida';
 
-export type CampoDatosConsumo = 'forma' | 'descripcion' | 'calorias' | 'desglose' | 'origen';
+export type CampoDatosConsumo =
+  | 'forma'
+  | 'descripcion'
+  | 'calorias'
+  | 'desglose'
+  | 'origen'
+  | 'solicitudId';
 
 /** No se pudo obtener una estimación a partir de la imagen. */
 export class AnalisisImagenError extends Error {

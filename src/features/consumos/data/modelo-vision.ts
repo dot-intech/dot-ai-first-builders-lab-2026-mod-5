@@ -29,13 +29,15 @@ export type EstimacionCruda = {
   descripcion: string;
   calorias: number;
   desglose: DesgloseCrudo;
+  confianza: number;
 };
 
 const PROMPT = `Sos un asistente de nutrición. Analizá la foto y respondé solo con el JSON pedido.
 1. Identificá los alimentos y la bebida que aparecen en la foto.
 2. "descripcion": una descripción amigable, breve y concisa en español de Latinoamérica (máximo 200 caracteres) de lo que hay en el plato. Si hay una bebida, mencionala.
 3. "calorias": las calorías totales estimadas (kcal) de todo lo que aparece en la foto, incluida la bebida.
-4. "carbohidratos", "proteinas", "grasas" y "otros": el porcentaje de esas calorías totales que aportan los carbohidratos, las proteínas, las grasas y otros nutrientes (por ejemplo, alcohol o fibra). Los cuatro porcentajes deben sumar 100.`;
+4. "carbohidratos", "proteinas", "grasas" y "otros": el porcentaje de esas calorías totales que aportan los carbohidratos, las proteínas, las grasas y otros nutrientes (por ejemplo, alcohol o fibra). Los cuatro porcentajes deben sumar 100.
+5. "confianza": un entero de 0 a 100 con tu nivel de confianza en que la descripción, las calorías y el desglose reflejan lo que aparece en la foto (100 = certeza total; un valor bajo si la foto es borrosa, está tapada, mal iluminada o el alimento es difícil de identificar).`;
 
 const CAMPOS_RESPUESTA = [
   'descripcion',
@@ -44,6 +46,7 @@ const CAMPOS_RESPUESTA = [
   'proteinas',
   'grasas',
   'otros',
+  'confianza',
 ] as const;
 
 const RESPONSE_SCHEMA: Schema = {
@@ -55,6 +58,7 @@ const RESPONSE_SCHEMA: Schema = {
     proteinas: { type: Type.NUMBER },
     grasas: { type: Type.NUMBER },
     otros: { type: Type.NUMBER },
+    confianza: { type: Type.NUMBER },
   },
   required: [...CAMPOS_RESPUESTA],
   propertyOrdering: [...CAMPOS_RESPUESTA],
@@ -76,7 +80,7 @@ export function interpretarRespuestaModelo(valor: unknown): EstimacionCruda {
   if (!esObjeto(valor)) {
     throw new AnalisisImagenError('respuesta-invalida');
   }
-  const { descripcion, calorias, carbohidratos, proteinas, grasas, otros } = valor;
+  const { descripcion, calorias, carbohidratos, proteinas, grasas, otros, confianza } = valor;
 
   if (typeof descripcion !== 'string') {
     throw new AnalisisImagenError('respuesta-invalida');
@@ -106,6 +110,9 @@ export function interpretarRespuestaModelo(valor: unknown): EstimacionCruda {
     descripcion: descripcionRecortada,
     calorias: Math.round(calorias),
     desglose: { carbohidratos, proteinas, grasas, otros },
+    // Salida no confiable de un tercero: si falta o no es numérica se toma como 0 y se advierte al
+    // usuario, en vez de descartar una estimación que por lo demás es válida.
+    confianza: esNumeroFinito(confianza) ? confianza : 0,
   };
 }
 

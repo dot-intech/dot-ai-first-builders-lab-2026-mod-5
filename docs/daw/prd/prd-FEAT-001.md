@@ -12,7 +12,7 @@
 |---|---|---|---|---|
 | FEAT-001a | Acceso directo de QA sin magic link | prd-FEAT-001a.md | none | done — PR #1 mergeado a main (05785c2) |
 | FEAT-001b | Registrar consumo a partir de una foto (captura/galería) con análisis de IA | prd-FEAT-001b.md | depends on a | done — PR #4 (draft), se mergea a main cuando se apruebe |
-| FEAT-001c | Carga manual y manejo de baja confianza en el registro de consumo por foto | prd-FEAT-001c.md | depends on b | active |
+| FEAT-001c | Carga manual y manejo de baja confianza en el registro de consumo por foto | prd-FEAT-001c.md | depends on b | done — PR #5 (draft), se mergea a main cuando se apruebe |
 
 ## Suggested implementation order
 a → b → c

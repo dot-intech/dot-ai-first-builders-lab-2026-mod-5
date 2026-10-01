@@ -40,12 +40,22 @@ const estimacion: EstimacionNutricional = {
   descripcion: 'Milanesa con papas fritas y una gaseosa',
   calorias: 850,
   desglose: { carbohidratos: 45, proteinas: 25, grasas: 28, otros: 2 },
+  confianza: 85,
 };
-const datos = { ...estimacion, origen: 'camara' as const };
+const SOLICITUD_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
+// La confianza no se persiste (A3): no forma parte de los datos a guardar.
+const datos = {
+  descripcion: estimacion.descripcion,
+  calorias: estimacion.calorias,
+  desglose: estimacion.desglose,
+  origen: 'camara' as const,
+  solicitudId: SOLICITUD_ID,
+};
 const consumo: Consumo = {
   ...datos,
   usuarioId: USUARIO_ID,
   id: 'consumo-1',
+  solicitudId: SOLICITUD_ID,
   createdAt: new Date('2026-09-26T12:00:00.000Z'),
 };
 
@@ -268,6 +278,24 @@ describe('operaciones-consumo/guardar', () => {
     expect(resultado).toStrictEqual({ tipo: 'guardado' });
     expect(resolverUsuarioDeSesion).toHaveBeenCalledExactlyOnceWith(TOKEN);
     expect(guardarConsumo).toHaveBeenCalledExactlyOnceWith(USUARIO_ID, conUsuarioAjeno);
+  });
+
+  it('debe devolver datos-invalidos y registrar el campo si falta el solicitudId', async () => {
+    vi.mocked(guardarConsumo).mockRejectedValue(new DatosConsumoInvalidosError('solicitudId'));
+    const sinSolicitudId: Record<string, unknown> = { ...datos };
+    delete sinSolicitudId.solicitudId;
+
+    const resultado = await guardar(TOKEN, sinSolicitudId);
+
+    expect(resultado).toStrictEqual({ tipo: 'datos-invalidos' });
+    expect(guardarConsumo).toHaveBeenCalledExactlyOnceWith(USUARIO_ID, sinSolicitudId);
+    expect(lineasDe(warn)).toEqual([
+      expect.objectContaining({
+        event: 'consumo_guardado',
+        outcome: 'rechazado',
+        reason: 'solicitudId',
+      }),
+    ]);
   });
 
   it('debe registrar consumo_guardado ok en nivel info, sin usuarioId', async () => {

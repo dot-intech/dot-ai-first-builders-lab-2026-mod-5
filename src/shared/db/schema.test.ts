@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { getTableConfig, type PgColumn } from 'drizzle-orm/pg-core';
+import { getTableConfig, PgDialect, type PgColumn } from 'drizzle-orm/pg-core';
 import { describe, expect, it } from 'vitest';
 import { consumos, sesiones, usuarios } from './schema';
 
@@ -181,6 +181,7 @@ describe('schema: consumos', () => {
         'pct_grasas',
         'pct_otros',
         'origen',
+        'solicitud_id',
         'created_at',
       ].sort(),
     );
@@ -226,6 +227,37 @@ describe('schema: consumos', () => {
   it('no debe declarar constraints UNIQUE', () => {
     expect(config.uniqueConstraints).toHaveLength(0);
   });
+
+  it('debe definir solicitud_id como uuid nullable, sin default ni UNIQUE propio', () => {
+    const solicitudId = columnaDe(consumos, 'solicitud_id');
+
+    expect(solicitudId.getSQLType()).toBe('uuid');
+    expect(solicitudId.notNull).toBe(false);
+    expect(solicitudId.hasDefault).toBe(false);
+    expect(solicitudId.isUnique).toBe(false);
+  });
+
+  it('debe tener el índice único no parcial consumos_usuario_solicitud_uidx sobre (usuario_id, solicitud_id)', () => {
+    const indice = config.indexes.find((i) => i.config.name === 'consumos_usuario_solicitud_uidx');
+
+    expect(indice).toBeDefined();
+    expect(indice!.config.unique).toBe(true);
+    expect(indice!.config.where).toBeUndefined();
+    expect(indice!.config.columns.map((c) => ('name' in c ? c.name : undefined))).toEqual([
+      'usuario_id',
+      'solicitud_id',
+    ]);
+  });
+
+  it("debe admitir en consumos_origen_check exactamente 'camara', 'galeria' y 'manual'", () => {
+    const check = config.checks.find((c) => c.name === 'consumos_origen_check');
+
+    expect(check).toBeDefined();
+    const { sql } = new PgDialect().sqlToQuery(check!.value);
+    const valores = [...sql.matchAll(/'([^']*)'/g)].map((m) => m[1]);
+
+    expect(valores.sort()).toEqual(['camara', 'galeria', 'manual']);
+  });
 });
 
 describe('migración 0001_consumos.sql', () => {
@@ -243,5 +275,36 @@ describe('migración 0001_consumos.sql', () => {
 
   it('no debe contener ALTER ... TYPE', () => {
     expect(leerSql()).not.toMatch(/\bALTER\b[^;]*\bTYPE\b/i);
+  });
+});
+
+describe('migración 0002_consumos_idempotencia.sql', () => {
+  // D2 (spec FEAT-001c): el único DROP permitido es el del CHECK de origen, que se recrea ampliado.
+  const leerSql = (): string =>
+    readFileSync(
+      join(RAIZ_REPO, 'drizzle', 'migrations', '0002_consumos_idempotencia.sql'),
+      'utf8',
+    );
+
+  it('solo debe contener DROP CONSTRAINT "consumos_origen_check"', () => {
+    const drops = leerSql().match(/\bDROP\b[^;]*/gi) ?? [];
+
+    expect(drops).toHaveLength(1);
+    expect(drops[0]).toMatch(/^DROP CONSTRAINT "consumos_origen_check"\s*$/i);
+  });
+
+  it.each(['DROP TABLE', 'DROP COLUMN', 'DROP INDEX', 'TRUNCATE', 'DELETE'])(
+    'no debe contener %s',
+    (sentencia) => {
+      expect(leerSql()).not.toMatch(new RegExp(`\\b${sentencia}\\b`, 'i'));
+    },
+  );
+
+  it('debe agregar solicitud_id, el índice único y el CHECK con manual', () => {
+    const sql = leerSql();
+
+    expect(sql).toMatch(/ADD COLUMN "solicitud_id" uuid/i);
+    expect(sql).toMatch(/CREATE UNIQUE INDEX "consumos_usuario_solicitud_uidx"/i);
+    expect(sql).toMatch(/ADD CONSTRAINT "consumos_origen_check"[^;]*'manual'/i);
   });
 });

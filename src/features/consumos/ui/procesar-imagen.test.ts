@@ -11,6 +11,7 @@ const ESTIMACION: EstimacionNutricional = {
   descripcion: 'Ensalada',
   calorias: 200,
   desglose: { carbohidratos: 20, proteinas: 10, grasas: 20, otros: 50 },
+  confianza: 85,
 };
 
 const BORRADOR: Borrador = {
@@ -116,6 +117,7 @@ describe('procesar-imagen', () => {
 
       await expect(procesarImagen({ archivo: ARCHIVO, solicitudId: ID }, deps)).resolves.toEqual({
         tipo: 'sin-sesion',
+        solicitudId: ID,
       });
     });
   });
@@ -138,7 +140,20 @@ describe('procesar-imagen', () => {
         calorias: 200,
         desglose: { carbohidratos: 20, proteinas: 10, grasas: 20, otros: 50 },
         origen: 'galeria',
+        solicitudId: ID,
       });
+    });
+
+    it('con dos llamadas con el mismo solicitudId debe enviar el mismo id', async () => {
+      const deps = dependenciasGuardado(() => Promise.resolve({ tipo: 'error' }));
+
+      await procesarGuardado(entrada, deps);
+      await procesarGuardado(entrada, deps);
+
+      const ids = deps.guardar.mock.calls.map(
+        ([datos]) => (datos as { solicitudId: string }).solicitudId,
+      );
+      expect(ids).toEqual([ID, ID]);
     });
 
     it.each<[string, () => Promise<ResultadoGuardado>, unknown]>([
@@ -152,7 +167,11 @@ describe('procesar-imagen', () => {
         () => Promise.resolve({ tipo: 'error' }),
         { tipo: 'guardado-fallo', solicitudId: ID, motivo: 'error' },
       ],
-      ['sin-sesion', () => Promise.resolve({ tipo: 'sin-sesion' }), { tipo: 'sin-sesion' }],
+      [
+        'sin-sesion',
+        () => Promise.resolve({ tipo: 'sin-sesion' }),
+        { tipo: 'sin-sesion', solicitudId: ID },
+      ],
       [
         'guardar que rechaza',
         () => Promise.reject(new Error('red')),

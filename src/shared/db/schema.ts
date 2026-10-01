@@ -7,6 +7,7 @@ import {
   smallint,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -41,7 +42,9 @@ export const sesiones = pgTable(
  * Los límites de los CHECKs (500 caracteres, 0..10000 kcal) replican `DESCRIPCION_MAX` y
  * `CALORIAS_MAX` del dominio de consumos: la BD vuelve a imponer lo que el service ya validó.
  * `origen` es `text` + CHECK y no `pgEnum` porque quitar un valor de un enum exige una
- * migración destructiva (M-12, threat model FEAT-001b).
+ * migración destructiva (M-12, threat model FEAT-001b). `origen` admite 'camara', 'galeria' y
+ * 'manual' (carga manual, FEAT-001c). `solicitud_id` es nullable porque las filas de FEAT-001b no
+ * lo tienen; el índice único no parcial habilita el `ON CONFLICT` de un mismo intento de registro.
  */
 export const consumos = pgTable(
   'consumos',
@@ -57,17 +60,19 @@ export const consumos = pgTable(
     pctGrasas: smallint('pct_grasas').notNull(),
     pctOtros: smallint('pct_otros').notNull(),
     origen: text('origen').notNull(),
+    solicitudId: uuid('solicitud_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index('consumos_usuario_id_idx').on(table.usuarioId),
+    uniqueIndex('consumos_usuario_solicitud_uidx').on(table.usuarioId, table.solicitudId),
     check('consumos_descripcion_check', sql`char_length(${table.descripcion}) BETWEEN 1 AND 500`),
     check('consumos_calorias_check', sql`${table.calorias} BETWEEN 0 AND 10000`),
     check('consumos_pct_carbohidratos_check', sql`${table.pctCarbohidratos} BETWEEN 0 AND 100`),
     check('consumos_pct_proteinas_check', sql`${table.pctProteinas} BETWEEN 0 AND 100`),
     check('consumos_pct_grasas_check', sql`${table.pctGrasas} BETWEEN 0 AND 100`),
     check('consumos_pct_otros_check', sql`${table.pctOtros} BETWEEN 0 AND 100`),
-    check('consumos_origen_check', sql`${table.origen} IN ('camara', 'galeria')`),
+    check('consumos_origen_check', sql`${table.origen} IN ('camara', 'galeria', 'manual')`),
     check(
       'consumos_desglose_suma_check',
       sql`${table.pctCarbohidratos} + ${table.pctProteinas} + ${table.pctGrasas} + ${table.pctOtros} = 100`,

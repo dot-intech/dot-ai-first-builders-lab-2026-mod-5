@@ -20,6 +20,7 @@ function aConsumo(fila: FilaConsumo): Consumo {
     },
     // La columna es `text`, pero `consumos_origen_check` solo admite los valores de `OrigenImagen`.
     origen: fila.origen as OrigenImagen,
+    solicitudId: fila.solicitudId,
     createdAt: fila.createdAt,
   };
 }
@@ -38,6 +39,21 @@ export async function crearConsumo(nuevo: NuevoConsumo): Promise<Consumo> {
         pctGrasas: nuevo.desglose.grasas,
         pctOtros: nuevo.desglose.otros,
         origen: nuevo.origen,
+        solicitudId: nuevo.solicitudId,
+      })
+      // Un mismo intento (usuario + solicitud) deja una sola fila; gana la última escritura (D3).
+      // Columnas explícitas: el `set` nunca toca `id`, `usuario_id`, `solicitud_id` ni `created_at`.
+      .onConflictDoUpdate({
+        target: [consumos.usuarioId, consumos.solicitudId],
+        set: {
+          descripcion: nuevo.descripcion,
+          calorias: nuevo.calorias,
+          pctCarbohidratos: nuevo.desglose.carbohidratos,
+          pctProteinas: nuevo.desglose.proteinas,
+          pctGrasas: nuevo.desglose.grasas,
+          pctOtros: nuevo.desglose.otros,
+          origen: nuevo.origen,
+        },
       })
       .returning(),
   );

@@ -8,6 +8,8 @@ import { analizarImagen, guardarConsumo } from './consumo-service';
 import { AnalisisImagenError, DatosConsumoInvalidosError } from './errors';
 import type { Consumo, OrigenImagen } from './types';
 
+const SOLICITUD_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
+
 // Factories explícitas: el automock importaría los módulos reales para descubrir sus exports, y eso
 // cargaría `@google/genai`, `env.ts` y el cliente de la BD. Nunca se llama a la API real ni a la BD.
 vi.mock('../data/modelo-vision', () => ({
@@ -25,6 +27,7 @@ function estimacionCruda(parcial: Partial<EstimacionCruda> = {}): EstimacionCrud
     descripcion: 'Milanesa con papas fritas y un vaso de agua',
     calorias: 850,
     desglose: { carbohidratos: 45, proteinas: 25, grasas: 30, otros: 0 },
+    confianza: 90,
     ...parcial,
   };
 }
@@ -35,6 +38,7 @@ function datosValidos(origen: OrigenImagen = 'camara'): Record<string, unknown> 
     calorias: 420,
     desglose: { carbohidratos: 20, proteinas: 35, grasas: 40, otros: 5 },
     origen,
+    solicitudId: SOLICITUD_ID,
   };
 }
 
@@ -46,6 +50,7 @@ function consumoGuardado(parcial: Partial<Consumo> = {}): Consumo {
     calorias: 420,
     desglose: { carbohidratos: 20, proteinas: 35, grasas: 40, otros: 5 },
     origen: 'camara',
+    solicitudId: SOLICITUD_ID,
     createdAt: new Date('2026-09-27T12:00:00.000Z'),
     ...parcial,
   };
@@ -81,8 +86,25 @@ describe('consumo-service/analizarImagen', () => {
       descripcion: 'Milanesa con papas fritas y un vaso de agua',
       calorias: 850,
       desglose: { carbohidratos: 34, proteinas: 33, grasas: 33, otros: 0 },
+      confianza: 90,
     });
     expect(Number.isInteger(estimacion.calorias)).toBe(true);
+  });
+
+  it.each([
+    [84.6, 85],
+    [101, 100],
+    [-5, 0],
+    [Number.NaN, 0],
+  ])('debe normalizar la confianza %s a el entero %s', async (cruda, esperada) => {
+    vi.mocked(modeloVision.analizarConModeloVision).mockResolvedValue(
+      estimacionCruda({ confianza: cruda }),
+    );
+
+    const estimacion = await analizarImagen(JPEG_MINIMO);
+
+    expect(estimacion.confianza).toBe(esperada);
+    expect(Number.isInteger(estimacion.confianza)).toBe(true);
   });
 
   it('debe rechazar bytes PNG con imagen-invalida sin llamar al adaptador', async () => {
@@ -133,6 +155,7 @@ describe('consumo-service/analizarImagen', () => {
       descripcion: 'Un vaso de agua',
       calorias: 0,
       desglose: { carbohidratos: 0, proteinas: 0, grasas: 0, otros: 100 },
+      confianza: 90,
     });
   });
 
@@ -160,6 +183,7 @@ describe('consumo-service/analizarImagen', () => {
       descripcion: 'Milanesa con papas fritas y un vaso de agua',
       calorias: 0,
       desglose: { carbohidratos: 0, proteinas: 0, grasas: 0, otros: 100 },
+      confianza: 90,
     });
   });
 });
@@ -177,12 +201,13 @@ describe('consumo-service/guardarConsumo', () => {
       calorias: 420,
       desglose: { carbohidratos: 20, proteinas: 35, grasas: 40, otros: 5 },
       origen: 'camara',
+      solicitudId: SOLICITUD_ID,
       usuarioId: 'u-1',
     });
     expect(resultado).toBe(guardado);
   });
 
-  it.each<OrigenImagen>(['camara', 'galeria'])(
+  it.each<OrigenImagen>(['camara', 'galeria', 'manual'])(
     'debe persistir el origen %s tal como llega',
     async (origen) => {
       vi.mocked(consumoRepository.crearConsumo).mockResolvedValue(consumoGuardado({ origen }));
@@ -206,6 +231,17 @@ describe('consumo-service/guardarConsumo', () => {
 
     expect(error).toBeInstanceOf(DatosConsumoInvalidosError);
     expect((error as DatosConsumoInvalidosError).campo).toBe('desglose');
+    expect(consumoRepository.crearConsumo).not.toHaveBeenCalled();
+  });
+
+  it('debe rechazar una entrada sin solicitudId con campo solicitudId sin llamar al repository', async () => {
+    const sinSolicitudId: Record<string, unknown> = { ...datosValidos() };
+    delete sinSolicitudId.solicitudId;
+
+    const error = await guardarConsumo('u-1', sinSolicitudId).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(DatosConsumoInvalidosError);
+    expect((error as DatosConsumoInvalidosError).campo).toBe('solicitudId');
     expect(consumoRepository.crearConsumo).not.toHaveBeenCalled();
   });
 

@@ -53,6 +53,7 @@ function respuestaValida(): Record<string, unknown> {
     proteinas: 30,
     grasas: 25,
     otros: 5,
+    confianza: 85,
   };
 }
 
@@ -183,6 +184,8 @@ describe('modelo-vision/analizarConModeloVision — llamada al SDK', () => {
     expect(prompt).toMatch(/prote[ií]nas/i);
     expect(prompt).toMatch(/grasas/i);
     expect(prompt).toMatch(/bebida/i);
+    expect(prompt).toMatch(/"confianza"/);
+    expect(prompt).toMatch(/0 a 100/);
     // Decisión del usuario (S-W1 de la revisión): sin instrucción extra para fotos sin comida.
     expect(prompt).not.toMatch(/no hay comida/i);
   });
@@ -211,11 +214,23 @@ describe('modelo-vision/analizarConModeloVision — llamada al SDK', () => {
         proteinas: { type: 'NUMBER' },
         grasas: { type: 'NUMBER' },
         otros: { type: 'NUMBER' },
+        confianza: { type: 'NUMBER' },
       },
     });
     const requeridos = (config.responseSchema as { required: string[] }).required;
     expect([...requeridos].sort()).toEqual(
-      ['calorias', 'carbohidratos', 'descripcion', 'grasas', 'otros', 'proteinas'].sort(),
+      [
+        'calorias',
+        'carbohidratos',
+        'confianza',
+        'descripcion',
+        'grasas',
+        'otros',
+        'proteinas',
+      ].sort(),
+    );
+    expect((config.responseSchema as { propertyOrdering: string[] }).propertyOrdering).toContain(
+      'confianza',
     );
     expect(TIMEOUT_MODELO_MS).toBe(25_000);
   });
@@ -244,6 +259,7 @@ describe('modelo-vision/analizarConModeloVision — llamada al SDK', () => {
       descripcion: 'Milanesa con puré y un vaso de agua',
       calorias: 650,
       desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
+      confianza: 85,
     });
   });
 
@@ -384,6 +400,7 @@ describe('modelo-vision/interpretarRespuestaModelo', () => {
       descripcion: 'Milanesa con puré y un vaso de agua',
       calorias: 650,
       desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
+      confianza: 85,
     });
   });
 
@@ -420,7 +437,12 @@ describe('modelo-vision/interpretarRespuestaModelo', () => {
       extra: 1,
     });
 
-    expect(Object.keys(resultado).sort()).toEqual(['calorias', 'descripcion', 'desglose']);
+    expect(Object.keys(resultado).sort()).toEqual([
+      'calorias',
+      'confianza',
+      'descripcion',
+      'desglose',
+    ]);
     expect(Object.keys(resultado.desglose).sort()).toEqual([
       'carbohidratos',
       'grasas',
@@ -455,5 +477,27 @@ describe('modelo-vision/interpretarRespuestaModelo', () => {
 
     expect(error.reason).toBe('respuesta-invalida');
     expect(error.message).toBe('No se pudo analizar la imagen');
+  });
+
+  it('debe devolver la confianza del modelo en la EstimacionCruda', () => {
+    expect(interpretarRespuestaModelo({ ...respuestaValida(), confianza: 85 }).confianza).toBe(85);
+  });
+
+  it.each<[string, unknown]>([
+    ['ausente', undefined],
+    ['un string', 'alta'],
+    ['NaN', Number.NaN],
+    ['Infinity', Number.POSITIVE_INFINITY],
+    ['null', null],
+  ])('debe devolver confianza 0 sin lanzar si es %s', (_, confianza) => {
+    const resultado = interpretarRespuestaModelo({ ...respuestaValida(), confianza });
+
+    expect(resultado.confianza).toBe(0);
+  });
+
+  it('debe seguir rechazando una descripción inválida aunque la confianza sea válida', () => {
+    expect(errorDeGuard({ ...respuestaValida(), descripcion: '', confianza: 90 }).reason).toBe(
+      'respuesta-invalida',
+    );
   });
 });

@@ -15,7 +15,14 @@ const RAZONES: AnalisisImagenReason[] = [
   'respuesta-invalida',
 ];
 
-const CAMPOS: CampoDatosConsumo[] = ['forma', 'descripcion', 'calorias', 'desglose', 'origen'];
+const CAMPOS: CampoDatosConsumo[] = [
+  'forma',
+  'descripcion',
+  'calorias',
+  'desglose',
+  'origen',
+  'solicitudId',
+];
 
 describe('AnalisisImagenError', () => {
   it.each(RAZONES)(

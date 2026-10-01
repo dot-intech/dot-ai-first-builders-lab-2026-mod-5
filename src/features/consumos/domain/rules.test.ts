@@ -5,7 +5,11 @@ import {
   CALORIAS_MAX,
   DESCRIPCION_MAX,
   IMAGEN_MAX_BYTES,
+  TIEMPO_LIMITE_GUARDADO_MS,
+  UMBRAL_CONFIANZA,
+  esBajaConfianza,
   esJpeg,
+  normalizarConfianza,
   normalizarDesglose,
   sumaDesglose,
   validarDatosConsumo,
@@ -29,14 +33,23 @@ function jpegDe(largo: number): Uint8Array {
   return bytes;
 }
 
+const SOLICITUD_ID = '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b';
+
 function datosValidos() {
   return {
     descripcion: 'Milanesa con puré',
     calorias: 850,
     desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
     origen: 'camara',
+    solicitudId: SOLICITUD_ID,
   };
 }
+
+describe('TIEMPO_LIMITE_GUARDADO_MS', () => {
+  it('debe valer 30 segundos (NFR-03)', () => {
+    expect(TIEMPO_LIMITE_GUARDADO_MS).toBe(30_000);
+  });
+});
 
 describe('límites', () => {
   it('deben coincidir con los CHECKs de la tabla consumos y el tope de imagen de la spec', () => {
@@ -232,6 +245,7 @@ describe('validarDatosConsumo', () => {
       calorias: 850,
       desglose: { carbohidratos: 40, proteinas: 30, grasas: 25, otros: 5 },
       origen: 'camara',
+      solicitudId: SOLICITUD_ID,
     });
     expect(resultado).not.toBe(entrada);
     expect(resultado.desglose).not.toBe(entrada.desglose);
@@ -258,6 +272,40 @@ describe('validarDatosConsumo', () => {
     ).toEqual({ carbohidratos: 0, proteinas: 0, grasas: 0, otros: 100 });
   });
 
+  it("debe aceptar origen 'manual' y devolver el solicitudId en minúsculas", () => {
+    const resultado = validarDatosConsumo({
+      ...datosValidos(),
+      origen: 'manual',
+      solicitudId: SOLICITUD_ID.toUpperCase(),
+    });
+
+    expect(resultado.origen).toBe('manual');
+    expect(resultado.solicitudId).toBe(SOLICITUD_ID);
+  });
+
+  it.each([
+    ['ausente', undefined],
+    ['un número', 123],
+    ["un string vacío ''", ''],
+    ['un string que no es UUID', 'no-es-un-uuid'],
+    ['un UUID con un carácter no hexadecimal', '3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6z'],
+    ['un UUID sin guiones', '3f2b8c1e5a4d4e6f9b7a1c2d3e4f5a6b'],
+    ['un UUID con espacios alrededor', ` ${SOLICITUD_ID} `],
+  ])("con solicitudId %s debe lanzar campo 'solicitudId'", (_nombre, solicitudId) => {
+    expect(campoDelError({ ...datosValidos(), solicitudId })).toBe('solicitudId');
+  });
+
+  it('debe descartar confianza y usuarioId de la entrada (M-3)', () => {
+    const resultado = validarDatosConsumo({
+      ...datosValidos(),
+      confianza: 42,
+      usuarioId: 'otro-usuario',
+    });
+
+    expect(resultado).not.toHaveProperty('confianza');
+    expect(resultado).not.toHaveProperty('usuarioId');
+  });
+
   it('debe descartar usuarioId y cualquier campo extra, también dentro del desglose', () => {
     const entrada = {
       ...datosValidos(),
@@ -274,6 +322,7 @@ describe('validarDatosConsumo', () => {
       'descripcion',
       'desglose',
       'origen',
+      'solicitudId',
     ]);
     expect(Object.keys(resultado.desglose).sort()).toEqual([
       'carbohidratos',
@@ -335,4 +384,41 @@ describe('validarDatosConsumo', () => {
   ])("con origen %s debe lanzar campo 'origen'", (_nombre, origen) => {
     expect(campoDelError({ ...datosValidos(), origen })).toBe('origen');
   });
+});
+
+describe('esBajaConfianza', () => {
+  it('debe fijar el umbral en 70', () => {
+    expect(UMBRAL_CONFIANZA).toBe(70);
+  });
+
+  it.each([
+    [70, true],
+    [71, false],
+    [0, true],
+    [100, false],
+  ])('esBajaConfianza(%d) debe ser %s', (confianza, esperado) => {
+    expect(esBajaConfianza(confianza)).toBe(esperado);
+  });
+});
+
+describe('normalizarConfianza', () => {
+  it('debe redondear al entero más cercano', () => {
+    expect(normalizarConfianza(84.6)).toBe(85);
+  });
+
+  it('debe limitar al rango 0..100', () => {
+    expect(normalizarConfianza(101)).toBe(100);
+    expect(normalizarConfianza(-5)).toBe(0);
+  });
+
+  it('debe conservar un entero válido', () => {
+    expect(normalizarConfianza(70)).toBe(70);
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY])(
+    'debe devolver 0 si el valor no es finito (%s)',
+    (valor) => {
+      expect(normalizarConfianza(valor)).toBe(0);
+    },
+  );
 });

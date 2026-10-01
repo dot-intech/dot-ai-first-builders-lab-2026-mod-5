@@ -6,6 +6,10 @@ export const DESCRIPCION_MAX = 500;
 export const CALORIAS_MAX = 10000;
 // El cliente reencodea a < ~900 KB; el margen cubre variaciones del encoder sin aceptar archivos crudos.
 export const IMAGEN_MAX_BYTES = 950_000;
+// Única frontera de la baja confianza (NFR-01): hasta este valor inclusive se pide revisar.
+export const UMBRAL_CONFIANZA = 70;
+/** Sin respuesta del guardado a los 30 s, el flujo vuelve a la revisión conservando el borrador. */
+export const TIEMPO_LIMITE_GUARDADO_MS = 30_000;
 
 // Orden fijo: define el desempate del reparto por mayor resto y el orden de lectura del desglose.
 const CLAVES_DESGLOSE = ['carbohidratos', 'proteinas', 'grasas', 'otros'] as const;
@@ -22,7 +26,7 @@ function restoRedondeado(escalado: number, entero: number): number {
   return Math.max(0, Math.round((escalado - entero) / TOLERANCIA_ESCALADO) * TOLERANCIA_ESCALADO);
 }
 
-const ORIGENES: readonly string[] = ['camara', 'galeria'] satisfies OrigenImagen[];
+const ORIGENES: readonly string[] = ['camara', 'galeria', 'manual'] satisfies OrigenImagen[];
 
 export function esJpeg(bytes: Uint8Array): boolean {
   return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -33,6 +37,18 @@ export function validarImagen(bytes: Uint8Array): void {
   if (bytes.length === 0 || bytes.length > IMAGEN_MAX_BYTES || !esJpeg(bytes)) {
     throw new AnalisisImagenError('imagen-invalida');
   }
+}
+
+export function esBajaConfianza(confianza: number): boolean {
+  return confianza <= UMBRAL_CONFIANZA;
+}
+
+/** Entero entre 0 y 100; un valor no finito cuenta como 0 (la confianza no informada es baja). */
+export function normalizarConfianza(valor: number): number {
+  if (!Number.isFinite(valor)) {
+    return 0;
+  }
+  return Math.min(100, Math.max(0, Math.round(valor)));
 }
 
 export function sumaDesglose(d: DesgloseNutricional): number {
@@ -87,6 +103,16 @@ function esEnteroEnRango(valor: unknown, min: number, max: number): valor is num
   return typeof valor === 'number' && Number.isInteger(valor) && valor >= min && valor <= max;
 }
 
+const FORMA_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Acepta solo un UUID (mayúsculas o minúsculas) y lo devuelve en minúsculas. */
+export function validarSolicitudId(valor: unknown): string {
+  if (typeof valor !== 'string' || !FORMA_UUID.test(valor)) {
+    throw new DatosConsumoInvalidosError('solicitudId');
+  }
+  return valor.toLowerCase();
+}
+
 function validarDescripcion(valor: unknown): string {
   if (typeof valor !== 'string') {
     throw new DatosConsumoInvalidosError('descripcion');
@@ -134,5 +160,12 @@ export function validarDatosConsumo(entrada: unknown): DatosConsumo {
   if (typeof origen !== 'string' || !ORIGENES.includes(origen)) {
     throw new DatosConsumoInvalidosError('origen');
   }
-  return { descripcion, calorias: entrada.calorias, desglose, origen: origen as OrigenImagen };
+  const solicitudId = validarSolicitudId(entrada.solicitudId);
+  return {
+    descripcion,
+    calorias: entrada.calorias,
+    desglose,
+    origen: origen as OrigenImagen,
+    solicitudId,
+  };
 }

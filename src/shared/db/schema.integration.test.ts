@@ -234,6 +234,53 @@ describe('schema: consumos', () => {
     expect(constraint).toBe('consumos_origen_check');
   });
 
+  it("debe insertar un consumo con origen = 'manual' y solicitud_id", async () => {
+    const usuarioId = await crearUsuario('consumo-manual');
+    const solicitudId = randomUUID();
+
+    const [creado] = await db
+      .insert(consumos)
+      .values({ ...consumoValido(usuarioId), origen: 'manual', solicitudId })
+      .returning();
+
+    expect(creado).toMatchObject({ origen: 'manual', solicitudId });
+  });
+
+  it('debe rechazar dos inserts con el mismo (usuario_id, solicitud_id) (consumos_usuario_solicitud_uidx)', async () => {
+    const usuarioId = await crearUsuario('consumo-solicitud-dup');
+    const solicitudId = randomUUID();
+    await db.insert(consumos).values({ ...consumoValido(usuarioId), solicitudId });
+
+    const constraint = await constraintRechazada(
+      db.insert(consumos).values({ ...consumoValido(usuarioId), solicitudId }),
+    );
+
+    expect(constraint).toBe('consumos_usuario_solicitud_uidx');
+  });
+
+  it('debe permitir el mismo solicitud_id para usuarios distintos', async () => {
+    const solicitudId = randomUUID();
+    const usuarioA = await crearUsuario('consumo-solicitud-a');
+    const usuarioB = await crearUsuario('consumo-solicitud-b');
+
+    await db.insert(consumos).values({ ...consumoValido(usuarioA), solicitudId });
+    await db.insert(consumos).values({ ...consumoValido(usuarioB), solicitudId });
+
+    const filas = await db.select().from(consumos).where(eq(consumos.solicitudId, solicitudId));
+    expect(filas).toHaveLength(2);
+  });
+
+  it('debe permitir varias filas con solicitud_id NULL para el mismo usuario (datos de FEAT-001b)', async () => {
+    const usuarioId = await crearUsuario('consumo-solicitud-null');
+
+    await db.insert(consumos).values(consumoValido(usuarioId));
+    await db.insert(consumos).values(consumoValido(usuarioId));
+
+    const filas = await db.select().from(consumos).where(eq(consumos.usuarioId, usuarioId));
+    expect(filas).toHaveLength(2);
+    expect(filas.every((f) => f.solicitudId === null)).toBe(true);
+  });
+
   it('debe rechazar un usuario_id inexistente por la FK', async () => {
     // UUID aleatorio que no se inserta en usuarios: no existe ninguna fila con ese id.
     const constraint = await constraintRechazada(
