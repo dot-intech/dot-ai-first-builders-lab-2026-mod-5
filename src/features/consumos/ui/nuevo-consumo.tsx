@@ -2,14 +2,13 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useReducer, useRef } from 'react';
-import { TIEMPO_LIMITE_GUARDADO_MS } from '../domain/rules';
+import { TIEMPO_LIMITE_ANALISIS_MS, TIEMPO_LIMITE_GUARDADO_MS } from '../domain/rules';
 import { analizarFotoConsumo, guardarNuevoConsumo } from './actions';
 import { reencodearComoJpeg } from './canvas-imagen';
 import {
   ESTADO_INICIAL,
   reducirFlujo,
   type CampoBorrador,
-  type EventoFlujo,
   type OrigenFoto,
 } from './flujo-nuevo-consumo';
 import estilos from './nuevo-consumo.module.css';
@@ -31,9 +30,6 @@ import { procesarGuardado, procesarImagen } from './procesar-imagen';
  * `vitest.config.ts`): canvas y `useEffect` no se pueden ejercitar en `node`.
  */
 
-// Cubre el reencodeo y la action: ninguna espera supera 30 s desde que se eligió la foto (NFR-02).
-const TIEMPO_LIMITE_MS = 30_000;
-
 export function NuevoConsumo() {
   const [estado, despachar] = useReducer(reducirFlujo, ESTADO_INICIAL);
   const router = useRouter();
@@ -45,10 +41,6 @@ export function NuevoConsumo() {
   const analisisDisparadoRef = useRef<string | null>(null);
   const guardadoDisparadoRef = useRef<string | null>(null);
 
-  function despacharEvento(evento: EventoFlujo) {
-    despachar(evento);
-  }
-
   // Temporizador de guardado (NFR-03): al entrar a `guardando` corta a los 30 s y vuelve a la
   // revisión con el borrador; se limpia al salir. El reintento reusa el `solicitudId` (idempotente).
   useEffect(() => {
@@ -57,7 +49,7 @@ export function NuevoConsumo() {
     }
     const { solicitudId } = estado;
     const temporizador = setTimeout(() => {
-      despacharEvento({ tipo: 'guardado-tiempo-agotado', solicitudId });
+      despachar({ tipo: 'guardado-tiempo-agotado', solicitudId });
     }, TIEMPO_LIMITE_GUARDADO_MS);
     return () => clearTimeout(temporizador);
   }, [estado]);
@@ -70,8 +62,8 @@ export function NuevoConsumo() {
     }
     const { solicitudId } = estado;
     const temporizador = setTimeout(() => {
-      despacharEvento({ tipo: 'tiempo-agotado', solicitudId });
-    }, TIEMPO_LIMITE_MS);
+      despachar({ tipo: 'tiempo-agotado', solicitudId });
+    }, TIEMPO_LIMITE_ANALISIS_MS);
     return () => clearTimeout(temporizador);
   }, [estado]);
 
@@ -88,14 +80,14 @@ export function NuevoConsumo() {
 
     const elegido = archivoElegidoRef.current;
     if (elegido === null || elegido.solicitudId !== solicitudId) {
-      despacharEvento({ tipo: 'analisis-fallo', solicitudId });
+      despachar({ tipo: 'analisis-fallo', solicitudId });
       return;
     }
 
     procesarImagen(
       { archivo: elegido.archivo, solicitudId },
       { reencodear: reencodearComoJpeg, analizar: analizarFotoConsumo },
-    ).then(despacharEvento);
+    ).then(despachar);
   }, [estado]);
 
   // Guardado: reacciona a la transición a `guardando` (Block 7), nunca al clic de "Guardar": así
@@ -123,22 +115,22 @@ export function NuevoConsumo() {
     guardadoDisparadoRef.current = solicitudId;
 
     procesarGuardado({ borrador, origen, solicitudId }, { guardar: guardarNuevoConsumo }).then(
-      despacharEvento,
+      despachar,
     );
   }, [estado]);
 
   function manejarSeleccionarImagen(archivo: File, origen: OrigenFoto) {
     const solicitudId = crypto.randomUUID();
     archivoElegidoRef.current = { solicitudId, archivo };
-    despacharEvento({ tipo: 'imagen-elegida', origen, solicitudId });
+    despachar({ tipo: 'imagen-elegida', origen, solicitudId });
   }
 
   function manejarCampoEditado(campo: CampoBorrador, valor: string) {
-    despacharEvento({ tipo: 'campo-editado', campo, valor });
+    despachar({ tipo: 'campo-editado', campo, valor });
   }
 
   function manejarCancelar() {
-    despacharEvento({ tipo: 'cancelar' });
+    despachar({ tipo: 'cancelar' });
   }
 
   function pantalla() {
@@ -154,24 +146,22 @@ export function NuevoConsumo() {
             esManual={estado.origen === 'manual'}
             requiereConfirmacion={estado.requiereConfirmacion}
             confirmado={estado.confirmado}
-            onConfirmar={(confirmado) =>
-              despacharEvento({ tipo: 'confirmar-revision', confirmado })
-            }
+            onConfirmar={(confirmado) => despachar({ tipo: 'confirmar-revision', confirmado })}
             aviso={estado.aviso}
             onCampoEditado={manejarCampoEditado}
             // El reductor (`pedirGuardado`, Block 7, 27aae3e) exige que el id coincida con el de
             // la revisión vigente: reenviar `estado.solicitudId` (no uno nuevo) es lo que ese
             // contrato pide. La protección contra el doble-disparo de StrictMode en un reintento
             // con este MISMO id vive en el efecto de guardado, no acá (ronda 3, S-F1).
-            onGuardar={() => despacharEvento({ tipo: 'guardar', solicitudId: estado.solicitudId })}
+            onGuardar={() => despachar({ tipo: 'guardar', solicitudId: estado.solicitudId })}
             onCancelar={manejarCancelar}
           />
         );
       case 'baja-confianza':
         return (
           <PantallaBajaConfianza
-            onCargarOtraImagen={() => despacharEvento({ tipo: 'cargar-otra-imagen' })}
-            onRevisarDatos={() => despacharEvento({ tipo: 'continuar-a-revision' })}
+            onCargarOtraImagen={() => despachar({ tipo: 'cargar-otra-imagen' })}
+            onRevisarDatos={() => despachar({ tipo: 'continuar-a-revision' })}
             onCancelar={manejarCancelar}
           />
         );
@@ -182,15 +172,13 @@ export function NuevoConsumo() {
         // estado (MC-8).
         return <PantallaSesionVencida onIniciarSesion={() => router.refresh()} />;
       case 'guardado':
-        return (
-          <PantallaGuardado onRegistrarOtro={() => despacharEvento({ tipo: 'registrar-otro' })} />
-        );
+        return <PantallaGuardado onRegistrarOtro={() => despachar({ tipo: 'registrar-otro' })} />;
       case 'error':
         return (
           <PantallaError
-            onReintentar={() => despacharEvento({ tipo: 'reintentar' })}
+            onReintentar={() => despachar({ tipo: 'reintentar' })}
             onCargarManual={() =>
-              despacharEvento({ tipo: 'carga-manual', solicitudId: crypto.randomUUID() })
+              despachar({ tipo: 'carga-manual', solicitudId: crypto.randomUUID() })
             }
             onCancelar={manejarCancelar}
           />

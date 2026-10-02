@@ -109,6 +109,13 @@ describe('dev-login/page', () => {
       expect(html).toContain(`Conectado como ${EMAIL}`);
     });
 
+    it('debe ofrecer enlaces al inicio y a registrar un consumo', async () => {
+      const html = await renderizar();
+
+      expect(html).toContain('href="/"');
+      expect(html).toContain('href="/consumos/nuevo"');
+    });
+
     it('no debe mostrar el botón de login ni ningún formulario', async () => {
       const html = await renderizar();
 
@@ -139,6 +146,12 @@ describe('dev-login/page', () => {
 
       expect(html).toContain(ATRIBUTO_SUBMIT);
       expect(html).not.toContain('Conectado como');
+    });
+
+    it('no debe mostrar enlaces: la navegación es solo para la sesión activa', async () => {
+      vi.mocked(getSession).mockRejectedValue(new SessionNotFoundError());
+
+      expect(await renderizar()).not.toContain('href=');
     });
 
     it('debe renderizar el botón de submit dentro de un <form>', async () => {
@@ -214,6 +227,10 @@ describe('dev-login/page', () => {
 
       expect(html).toContain('No se pudo verificar la sesión');
       expect(html).not.toContain(ATRIBUTO_SUBMIT);
+    });
+
+    it('no debe mostrar enlaces', async () => {
+      expect(await renderizar()).not.toContain('href=');
     });
 
     it('debe loguear solo la operation, sin email, token ni cause', async () => {

@@ -155,10 +155,13 @@ Elegido por el usuario el 2026-09-29 (PLAN), salvo el riesgo residual de D4, que
 - **Rollback de la 0002:** solo es viable antes de tener datos reales: `DROP INDEX`, `DROP COLUMN
   "solicitud_id"` y volver el CHECK a dos valores, después de borrar o reasignar las filas con
   `origen = 'manual'` (riesgo aceptado #2 de FEAT-001c).
-- Cualquier cambio futuro del umbral o del tiempo límite de guardado se hace en `domain/rules.ts`; la
-  excepción es `TIEMPO_LIMITE_MS`, local al análisis, pendiente de la deuda de abajo.
-- **Deuda menor conocida, decisión diferida a VERIFY de FEAT-001c** (unificar o abrir un ticket aparte;
-  mientras tanto no afecta el comportamiento):
+- Cualquier cambio futuro del umbral o de los tiempos límite (análisis y guardado) se hace en
+  `domain/rules.ts`. *(Actualizado en FIX-003: antes el del análisis era `TIEMPO_LIMITE_MS`, local a la UI.)*
+- **Deuda menor conocida, decisión diferida a VERIFY de FEAT-001c — RESUELTA en FIX-003**
+  (`docs/daw/specs/fix-FIX-003.md`): el tiempo límite del análisis pasó a `TIEMPO_LIMITE_ANALISIS_MS` en
+  `domain/rules.ts`, junto a `TIEMPO_LIMITE_GUARDADO_MS` (se conservaron dos constantes porque responden a
+  requisitos distintos, NFR-02 de FEAT-001b y NFR-03 de FEAT-001c), y `despacharEvento` se eliminó. El
+  texto original de la deuda se conserva abajo como registro:
   - Hay dos constantes de 30 s con distinto origen: `TIEMPO_LIMITE_MS`, local a `ui/nuevo-consumo.tsx`
     para el análisis, y `TIEMPO_LIMITE_GUARDADO_MS`, en `domain/rules.ts`, para el guardado. En VERIFY se
     decide si se unifican o se abre un ticket.

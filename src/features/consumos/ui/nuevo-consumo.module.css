@@ -13,6 +13,8 @@
 }
 
 .campo {
+  /* El input de archivo mide ~327 px intrínsecos: sin tope desborda en pantallas de 240–320 px. */
+  max-width: 100%;
   min-height: 44px;
   font-size: 1rem;
 }

@@ -37,6 +37,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   `features`, sin imports entre features, sin `'use server'` en `shared`).
 
 ### Fixed
+- [FIX-003] La pantalla de inicio de "Registrar consumo" ya no se desplaza en horizontal en pantallas
+  angostas (240–320 px): `.campo` tiene `max-width: 100%` y el `<input type="file">`, que medía ~327 px,
+  se ajusta al ancho. `/dev-login` con sesión activa ofrece enlaces al inicio y a "Registrar consumo".
+  Se salda la deuda de ADR-010: el tiempo límite del análisis pasa a `TIEMPO_LIMITE_ANALISIS_MS` en
+  `domain/rules.ts`, junto al del guardado, y se elimina el wrapper vacío `despacharEvento`. Sin cambios
+  de comportamiento ni de esquema.
 - [FIX-001] `docs/daw/specs/spec-FEAT-001a.md` corregida para reflejar las decisiones tomadas durante
   CODE (ADR-001 a ADR-006) y el hallazgo W-2 de la verificación: nombres de función, ubicación de
   `RepositoryError`, dirección de dependencias `data`↔`domain` y archivos/firmas reales de los
