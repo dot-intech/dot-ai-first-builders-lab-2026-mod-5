@@ -5,6 +5,7 @@ import {
   CALORIAS_MAX,
   DESCRIPCION_MAX,
   IMAGEN_MAX_BYTES,
+  TIEMPO_LIMITE_ANALISIS_MS,
   TIEMPO_LIMITE_GUARDADO_MS,
   UMBRAL_CONFIANZA,
   esBajaConfianza,
@@ -44,6 +45,12 @@ function datosValidos() {
     solicitudId: SOLICITUD_ID,
   };
 }
+
+describe('TIEMPO_LIMITE_ANALISIS_MS', () => {
+  it('debe valer 30 segundos (NFR-02 de FEAT-001b)', () => {
+    expect(TIEMPO_LIMITE_ANALISIS_MS).toBe(30_000);
+  });
+});
 
 describe('TIEMPO_LIMITE_GUARDADO_MS', () => {
   it('debe valer 30 segundos (NFR-03)', () => {

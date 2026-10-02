@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { env } from '../../env';
 import { NOMBRE_COOKIE_SESION } from '../../shared/sesion/ui/cookie-sesion';
@@ -25,6 +26,12 @@ export default async function DevLoginPage({ searchParams }: DevLoginPageProps) 
     return (
       <main>
         <p>Conectado como {estado.email}</p>
+        <p>
+          <Link href="/">Ir al inicio</Link>
+        </p>
+        <p>
+          <Link href="/consumos/nuevo">Registrar consumo</Link>
+        </p>
       </main>
     );
   }
