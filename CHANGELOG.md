@@ -41,3 +41,5 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   CODE (ADR-001 a ADR-006) y el hallazgo W-2 de la verificación: nombres de función, ubicación de
   `RepositoryError`, dirección de dependencias `data`↔`domain` y archivos/firmas reales de los
   Blocks 5 y 6. Sin cambios de código.
+- [FIX-002] El índice de `docs/daw/prd/prd-FEAT-001.md` marca FEAT-001b y FEAT-001c como mergeados
+  (PR #4 y #5 ya en `main`). Sin cambios de código.
